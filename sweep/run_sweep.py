@@ -49,7 +49,7 @@ from astropy.time import Time
 from gmat_sweep import LocalJoblibPool, Manifest, RunSpec, Sweep
 from sgp4.api import Satrec, jday
 
-DEFAULT_SMOKE_PER_BUCKET: Final = 2  # 4 Δt buckets × 2 → N=8 total
+DEFAULT_SMOKE_N: Final = 8  # split evenly across the Δt buckets
 DEFAULT_SMOKE_SEED: Final = 42
 DEFAULT_WORKERS: Final = 8
 
@@ -291,9 +291,15 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--smoke",
-        action="store_true",
-        help="Run a small stratified-random subset (2 pairs per Δt bucket, "
-        "seed=42) instead of the full corpus — for pipeline validation.",
+        type=int,
+        nargs="?",
+        const=DEFAULT_SMOKE_N,
+        default=None,
+        metavar="N",
+        help=f"Run a stratified-random subset of ~N pairs instead of the full "
+        f"corpus (default {DEFAULT_SMOKE_N} when --smoke given alone). N is "
+        f"split evenly across the Δt buckets (N // n_buckets per bucket; "
+        f"remainder truncates), seed=42 for reproducibility.",
     )
     parser.add_argument(
         "--workers",
@@ -401,15 +407,16 @@ def main() -> int:
     args = parse_args()
 
     pairs = pd.read_parquet(args.tles).reset_index(drop=True)
-    if args.smoke:
-        # Stratified-random by Δt bucket so all four horizons (6 h / 1 d / 3 d
-        # / 7 d) are exercised; sats and altitude shells fall out randomly
-        # within each stratum, so a single bad-sat or shell-specific bug
-        # surfaces here rather than escaping to the full sweep. Seeded for
-        # bit-reproducible smoke runs.
+    if args.smoke is not None:
+        # Stratified-random by Δt bucket so every horizon (6 h / 1 d / 3 d /
+        # 7 d) is exercised; sats and altitude shells fall out randomly within
+        # each stratum so a sat-loop or shell-specific bug surfaces here
+        # rather than escaping to the full sweep. Seeded for reproducibility.
+        n_buckets = pairs["target_dt_sec"].nunique()
+        per_bucket = max(1, args.smoke // n_buckets)
         pairs = (
             pairs.groupby("target_dt_sec", group_keys=False)
-            .sample(n=DEFAULT_SMOKE_PER_BUCKET, random_state=DEFAULT_SMOKE_SEED)
+            .sample(n=per_bucket, random_state=DEFAULT_SMOKE_SEED)
             .reset_index(drop=True)
         )
     print(f"loaded {len(pairs)} pair(s) from {args.tles}", file=sys.stderr)
