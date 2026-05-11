@@ -58,7 +58,10 @@ ALTITUDE_SHELLS_KM: Final = {
 }
 
 DEFAULT_MANEUVER_THRESHOLD_KM: Final = 0.1  # 100 m SMA jump
-DEFAULT_TARGET_DTS_SEC: Final = (86_400, 3 * 86_400, 7 * 86_400)
+# Δt buckets: 6 hours sits just beyond Starlink's ~4-hour operator update
+# cadence, making it the most operationally relevant horizon. 1/3/7-day
+# targets span the staleness range H1's power-law fit covers.
+DEFAULT_TARGET_DTS_SEC: Final = (6 * 3600, 86_400, 3 * 86_400, 7 * 86_400)
 DEFAULT_TOLERANCE_SEC: Final = 7_200  # ±2 hours around the target Δt
 DEFAULT_SATS_PER_SHELL: Final = 167
 DEFAULT_SEED: Final = 20260401

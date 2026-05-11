@@ -136,16 +136,20 @@ class TestSubsampleStartingTles:
 
 class TestBuildPairs:
     def test_target_dt_match_within_tolerance(self) -> None:
-        # Starting TLE at day 0; candidates exist at day 1 (target +1d), day 3, day 7.
-        rows = []
-        for d in (0, 1, 3, 7):
-            rows.append(
-                _tle(1, (pd.Timestamp("2026-04-01T00:00:00Z") + timedelta(days=d)).isoformat())
-            )
+        # Starting TLE at day 0; one candidate per default target Δt (6h, 1d, 3d, 7d).
+        base = pd.Timestamp("2026-04-01T00:00:00Z")
+        offsets = (
+            timedelta(0),
+            timedelta(hours=6),
+            timedelta(days=1),
+            timedelta(days=3),
+            timedelta(days=7),
+        )
+        rows = [_tle(1, (base + off).isoformat()) for off in offsets]
         tles = pd.DataFrame(rows)
         starts = tles.iloc[:1]
         pairs = build_pairs(starts, tles)
-        assert len(pairs) == 3
+        assert len(pairs) == len(DEFAULT_TARGET_DTS_SEC)
         assert sorted(pairs["target_dt_sec"].tolist()) == sorted(DEFAULT_TARGET_DTS_SEC)
 
     def test_missing_target_skipped_when_out_of_tolerance(self) -> None:
@@ -287,4 +291,4 @@ class TestDefaults:
 
     def test_target_dts_default(self) -> None:
         # If this changes, the paper's H1 staleness fit horizons change too.
-        assert DEFAULT_TARGET_DTS_SEC == (86_400, 3 * 86_400, 7 * 86_400)
+        assert DEFAULT_TARGET_DTS_SEC == (6 * 3600, 86_400, 3 * 86_400, 7 * 86_400)
