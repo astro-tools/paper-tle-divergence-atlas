@@ -34,7 +34,10 @@ Thumbs.db
 /ms.fdb_latexmk
 /ms.fls
 /ms.toc
-src/tex/figures/
+# Gitignore everything in figures/ except .gitkeep so the dir exists
+# (showyourwork's post-build cache step writes last_commit_sha.txt here)
+src/tex/figures/*
+!src/tex/figures/.gitkeep
 src/tex/_minted-*/
 
 # Sweep outputs (large; deposited on Zenodo)
