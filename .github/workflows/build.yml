@@ -8,7 +8,11 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  # contents: write lets showyourwork-action force-push the built PDF and
+  # arxiv tarball to the auto-managed `<branch>-pdf` branch on each push to
+  # `main`. Provides a stable URL to the latest manuscript without exposing
+  # write to anything other than the official action.
+  contents: write
 
 jobs:
   build:
