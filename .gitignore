@@ -43,9 +43,18 @@ src/tex/_minted-*/
 # Sweep outputs (large; deposited on Zenodo)
 outputs/
 
+# Raw Space-Track TLE dump (~100 MB; one-time fetch, not for commit).
+# The post-sample corpus (src/data/tles_cache.parquet) IS committed.
+src/data/tles_raw.parquet
+src/data/_validate_pairs.png
+
 # Local TLE / data caches (small; can be committed if useful)
 *.tle.cache
 *.parquet.cache
 
 # Conda
 .conda/
+
+# Local secrets (Space-Track credentials, etc.)
+.env
+.env.local

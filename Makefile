@@ -1,17 +1,30 @@
-.PHONY: help env build sweep figures clean
+.PHONY: help env fetch-tles build-corpus build sweep figures clean
 
 help:
 	@echo "Targets:"
-	@echo "  env      -- create the conda env (one-time setup; env stored at ~/miniforge3/envs/)"
-	@echo "  build    -- render PDF via showyourwork (uses Zenodo-cached outputs)"
-	@echo "  sweep    -- run the gmat-sweep locally (requires GMAT; ~3 h on 8 cores)"
-	@echo "  figures  -- regenerate figures from outputs/"
-	@echo "  clean    -- remove generated artifacts (PDF, figures, snakemake state)"
+	@echo "  env          -- create the conda env (one-time setup; env stored at ~/miniforge3/envs/)"
+	@echo "  fetch-tles   -- one-time Space-Track fetch into src/data/tles_raw.parquet"
+	@echo "                  Requires SPACETRACK_USERNAME and SPACETRACK_PASSWORD env vars."
+	@echo "  build-corpus -- pairs + maneuver filter + stratified sample → src/data/tles_cache.parquet"
+	@echo "  build        -- render PDF via showyourwork (uses Zenodo-cached outputs)"
+	@echo "  sweep        -- run the gmat-sweep locally (requires GMAT; ~3 h on 8 cores)"
+	@echo "  figures      -- regenerate figures from outputs/"
+	@echo "  clean        -- remove generated artifacts (PDF, figures, snakemake state)"
 	@echo ""
 	@echo "After 'make env', activate with: conda activate paper-tle-divergence-atlas"
 
 env:
 	conda env create -f environment.yml
+
+fetch-tles:
+	python -m sweep.tle_pipeline fetch \
+	    --window src/data/window.json \
+	    --out src/data/tles_raw.parquet
+
+build-corpus:
+	python -m sweep.tle_pipeline build \
+	    --raw src/data/tles_raw.parquet \
+	    --out src/data/tles_cache.parquet
 
 build:
 	showyourwork build
