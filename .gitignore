@@ -49,3 +49,7 @@ outputs/
 
 # Conda
 .conda/
+
+# Local secrets (Space-Track credentials, etc.)
+.env
+.env.local
