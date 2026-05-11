@@ -1,4 +1,4 @@
-.PHONY: help env fetch-tles build-corpus build sweep figures clean
+.PHONY: help env fetch-tles build-corpus build smoke sweep figures clean
 
 help:
 	@echo "Targets:"
@@ -7,6 +7,7 @@ help:
 	@echo "                  Requires SPACETRACK_USERNAME and SPACETRACK_PASSWORD env vars."
 	@echo "  build-corpus -- pairs + maneuver filter + stratified sample → src/data/tles_cache.parquet"
 	@echo "  build        -- render PDF via showyourwork (uses Zenodo-cached outputs)"
+	@echo "  smoke        -- run an N=8 sweep against the cached corpus (requires GMAT)"
 	@echo "  sweep        -- run the gmat-sweep locally (requires GMAT; ~3 h on 8 cores)"
 	@echo "  figures      -- regenerate figures from outputs/"
 	@echo "  clean        -- remove generated artifacts (PDF, figures, snakemake state)"
@@ -28,6 +29,15 @@ build-corpus:
 
 build:
 	showyourwork build
+
+smoke:
+	python sweep/run_sweep.py \
+	    --smoke \
+	    --workers 4 \
+	    --mission sweep/mission.script \
+	    --tles src/data/tles_cache.parquet \
+	    --output-dir outputs/ \
+	    --manifest sweep/manifest.jsonl
 
 sweep:
 	python sweep/run_sweep.py \

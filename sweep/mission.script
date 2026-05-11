@@ -26,11 +26,15 @@ GMAT Sat.Z = 0.0;
 GMAT Sat.VX = 0.0;
 GMAT Sat.VY = 7.5;
 GMAT Sat.VZ = 0.0;
-GMAT Sat.DryMass = 260.0;      % kg; placeholder for Starlink v2
+% Starlink v2-mini bias for the active fleet. Mass, drag area, and SRP area
+% are placeholders held constant across the corpus (no public per-sat data);
+% per-run overrides via Sat.DryMass / Sat.DragArea / Sat.SRPArea are wired
+% through gmat-sweep should that ever change.
+GMAT Sat.DryMass = 800.0;      % kg; Starlink v2-mini approximate dry mass
 GMAT Sat.Cr = 1.5;
-GMAT Sat.SRPArea = 5.0;        % m^2 (placeholder)
+GMAT Sat.SRPArea = 3.5;        % m^2 (attitude-averaged placeholder)
 GMAT Sat.Cd = 2.2;
-GMAT Sat.DragArea = 5.0;       % m^2 (placeholder)
+GMAT Sat.DragArea = 3.5;       % m^2 (attitude-averaged placeholder)
 
 %----------------------------------------
 %---------- Force Model
@@ -38,10 +42,18 @@ GMAT Sat.DragArea = 5.0;       % m^2 (placeholder)
 
 Create ForceModel FM;
 GMAT FM.CentralBody = Earth;
+% PrimaryBodies must be set before the GravityField.* / Drag.* fields below
+% (GMAT only accepts those on bodies declared primary).
+GMAT FM.PrimaryBodies = {Earth};
 GMAT FM.PointMasses = {Sun, Luna};
 GMAT FM.SRP = On;
+% EGM96 70x70: GMAT R2026a ships EGM96.cof out of the box; sourcing
+% EGM2008 in GMAT .cof format is tracked as a follow-up. The difference
+% vs. EGM2008 at degree 70 is sub-mm at LEO, well below this paper's
+% km-scale error budget.
 GMAT FM.GravityField.Earth.Degree = 70;
 GMAT FM.GravityField.Earth.Order = 70;
+GMAT FM.GravityField.Earth.PotentialFile = 'EGM96.cof';
 GMAT FM.Drag.AtmosphereModel = MSISE90;
 GMAT FM.ErrorControl = RSSStep;
 
@@ -73,5 +85,3 @@ GMAT FinalState.Add = {Sat.UTCGregorian, Sat.X, Sat.Y, Sat.Z, Sat.VX, Sat.VY, Sa
 BeginMissionSequence;
 
 Propagate Prop(Sat) {Sat.ElapsedSecs = elapsed_seconds};
-
-Report FinalState Sat.UTCGregorian Sat.X Sat.Y Sat.Z Sat.VX Sat.VY Sat.VZ;
