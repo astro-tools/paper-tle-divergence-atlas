@@ -119,18 +119,35 @@ def fetch_tles(
         )
 
     epoch_range = f"{window.start.strftime('%Y-%m-%d')}--{window.end.strftime('%Y-%m-%d')}"
-    query = (
-        f"{base}/basicspacedata/query"
-        f"/class/gp_history"
-        f"/EPOCH/{epoch_range}"
-        f"/OBJECT_NAME/~~STARLINK"
-        f"/orderby/NORAD_CAT_ID,EPOCH%20asc"
-        f"/format/json"
-    )
-    resp = session.get(query, timeout=300)
-    resp.raise_for_status()
+    # Space-Track returns "Query range out of bounds" for large unbounded
+    # queries (Starlink × 30 days is ~50k rows). Paginate via limit/offset
+    # until an empty page comes back.
+    page_size = 5000
+    offset = 0
+    all_rows: list[dict] = []
+    while True:
+        query = (
+            f"{base}/basicspacedata/query"
+            f"/class/gp_history"
+            f"/EPOCH/{epoch_range}"
+            f"/OBJECT_NAME/~~STARLINK"
+            f"/orderby/NORAD_CAT_ID,EPOCH%20asc"
+            f"/limit/{page_size}/offset/{offset}"
+            f"/format/json"
+        )
+        resp = session.get(query, timeout=300)
+        resp.raise_for_status()
+        rows = resp.json()
+        if not rows:
+            break
+        # Space-Track surfaces query errors as a one-row list `[{"error": ...}]`.
+        if isinstance(rows, list) and rows and "error" in rows[0] and "NORAD_CAT_ID" not in rows[0]:
+            raise RuntimeError(f"Space-Track query error: {rows[0]['error']}")
+        all_rows.extend(rows)
+        if len(rows) < page_size:
+            break
+        offset += page_size
 
-    rows = resp.json()
     df = pd.DataFrame(
         [
             {
@@ -140,7 +157,7 @@ def fetch_tles(
                 "line1": r["TLE_LINE1"],
                 "line2": r["TLE_LINE2"],
             }
-            for r in rows
+            for r in all_rows
         ],
     )
     df = df.sort_values(["norad_id", "epoch"]).reset_index(drop=True)
