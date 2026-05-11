@@ -92,8 +92,8 @@ def fetch_tles(
     """
     import requests
 
-    username = username or os.environ.get("SPACETRACK_USERNAME")
-    password = password or os.environ.get("SPACETRACK_PASSWORD")
+    username = (username or os.environ.get("SPACETRACK_USERNAME", "")).strip()
+    password = (password or os.environ.get("SPACETRACK_PASSWORD", "")).strip()
     if not username or not password:
         raise RuntimeError(
             "Space-Track credentials missing. Set SPACETRACK_USERNAME and "
@@ -108,6 +108,15 @@ def fetch_tles(
         timeout=30,
     )
     auth.raise_for_status()
+    # Space-Track returns HTTP 200 with `{"Login":"Failed"}` on bad creds —
+    # the status code alone is not enough. The auth cookie ("chocolatechip")
+    # is present either way, so check the body explicitly.
+    if "Failed" in auth.text:
+        raise RuntimeError(
+            "Space-Track auth failed (status 200 but body indicates failure). "
+            "Check SPACETRACK_USERNAME / SPACETRACK_PASSWORD; common cause is "
+            "trailing whitespace or Windows line endings in the .env file.",
+        )
 
     epoch_range = f"{window.start.strftime('%Y-%m-%d')}--{window.end.strftime('%Y-%m-%d')}"
     query = (
