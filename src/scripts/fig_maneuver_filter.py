@@ -1,15 +1,15 @@
 """Figure F8 (appendix): SMA-jump histogram with the maneuver-filter threshold.
 
 The Starlink ion-drive maneuver signature is a discontinuity in mean motion
-between consecutive TLEs. Plot the distribution of |Δa| across all pairs in
-the raw cache; the threshold separating quiet pairs from maneuvering pairs
-should sit cleanly between two modes of the histogram.
+between consecutive TLEs. Plot the distribution of |Δa| across all pairs of
+consecutive TLEs in the raw cache; the threshold separating quiet pairs from
+maneuvering pairs should sit cleanly between two modes of the histogram.
 
 This figure is not wired into ms.tex until Day 6 (issue #5). Day 2 commits
 the script so the calibration of the 100-m default threshold is reviewable
 alongside the pipeline.
 
-Usage (Day 2):
+Usage:
     python src/scripts/fig_maneuver_filter.py \\
         --raw src/data/tles_raw.parquet \\
         --out src/tex/figures/fig_maneuver_filter.pdf
@@ -24,7 +24,19 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from sweep.tle_pipeline import DEFAULT_MANEUVER_THRESHOLD_KM, build_pairs
+from sweep.tle_pipeline import (
+    DEFAULT_MANEUVER_THRESHOLD_KM,
+    _mean_motion_from_line2,
+    sma_km_from_mean_motion,
+)
+
+
+def _consecutive_sma_jumps(tles: pd.DataFrame) -> np.ndarray:
+    """|Δa| in km between every pair of consecutive TLEs (per sat)."""
+    tles = tles.sort_values(["norad_id", "epoch"]).reset_index(drop=True)
+    sma = tles["line2"].map(lambda x: sma_km_from_mean_motion(_mean_motion_from_line2(x)))
+    diffs = sma.groupby(tles["norad_id"]).diff().abs().dropna()
+    return diffs.to_numpy()
 
 
 def _cli() -> int:
@@ -44,11 +56,10 @@ def _cli() -> int:
     args = parser.parse_args()
 
     raw = pd.read_parquet(args.raw)
-    pairs = build_pairs(raw)
+    jumps = _consecutive_sma_jumps(raw)
 
-    # Symmetric log-binned histogram covers ~1 m to ~100 km of SMA jump.
-    jumps = pairs["sma_jump_km"].to_numpy()
-    jumps_nz = np.maximum(jumps, 1e-4)  # floor zeros so log binning works
+    # Floor zeros so log binning works; covers ~0.1 m to ~100 km.
+    jumps_nz = np.maximum(jumps, 1e-4)
     bins = np.logspace(-4, 2, 60)
 
     kept = int((jumps <= args.threshold_km).sum())
@@ -65,9 +76,9 @@ def _cli() -> int:
     )
     ax.set_xscale("log")
     ax.set_xlabel("|Δa| between consecutive TLEs (km)")
-    ax.set_ylabel("pair count")
+    ax.set_ylabel("count")
     ax.set_title(
-        f"Maneuver-filter calibration — {kept:,} pairs kept, {dropped:,} dropped",
+        f"Maneuver-filter calibration — {kept:,} quiet, {dropped:,} maneuvering",
     )
     ax.legend()
     ax.grid(True, which="both", alpha=0.3)

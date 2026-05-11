@@ -20,8 +20,8 @@ from sweep.tle_pipeline import (
     build_pairs,
     detect_maneuver_epochs,
     filter_maneuvers,
+    sample_sats,
     sma_km_from_mean_motion,
-    stratified_sample,
     subsample_starting_tles,
 )
 
@@ -216,36 +216,32 @@ class TestFilterManeuvers:
         assert filter_maneuvers(empty, pd.DataFrame()).empty
 
 
-class TestStratifiedSample:
-    def _build_quiet_corpus(self) -> pd.DataFrame:
+class TestSampleSats:
+    def _three_shell_fleet(self, sats_per_shell: int = 5) -> pd.DataFrame:
         rows = []
         norad = 1
         for shell_line2 in (LINE2_540KM, LINE2_550KM, LINE2_560KM):
-            for _ in range(5):
-                rows.extend(_daily_tles(norad, days=10, line2=shell_line2))
+            for _ in range(sats_per_shell):
+                rows.extend(_daily_tles(norad, days=3, line2=shell_line2))
                 norad += 1
-        tles = pd.DataFrame(rows)
-        starts = subsample_starting_tles(tles)
-        return build_pairs(starts, tles)
+        return pd.DataFrame(rows)
 
     def test_each_shell_capped(self) -> None:
-        pairs = self._build_quiet_corpus()
-        sampled = stratified_sample(pairs, n_per_shell=2, seed=42)
-        assert sampled["norad_id"].nunique() == 6  # 2 per shell × 3 shells
+        sat_to_shell = sample_sats(self._three_shell_fleet(), n_per_shell=2, seed=42)
+        assert len(sat_to_shell) == 6  # 2 per shell × 3 shells
+        assert sorted(set(sat_to_shell.values())) == ["540", "550", "560"]
 
     def test_deterministic_under_seed(self) -> None:
-        pairs = self._build_quiet_corpus()
-        a = stratified_sample(pairs, n_per_shell=2, seed=42)
-        b = stratified_sample(pairs, n_per_shell=2, seed=42)
-        assert sorted(a["norad_id"].unique()) == sorted(b["norad_id"].unique())
+        tles = self._three_shell_fleet()
+        a = sample_sats(tles, n_per_shell=2, seed=42)
+        b = sample_sats(tles, n_per_shell=2, seed=42)
+        assert sorted(a) == sorted(b)
 
     def test_offshell_sats_are_excluded(self) -> None:
-        rows = _daily_tles(1, days=10, line2=LINE2_OFFSHELL)
-        rows.extend(_daily_tles(2, days=10, line2=LINE2_550KM))
-        tles = pd.DataFrame(rows)
-        pairs = build_pairs(subsample_starting_tles(tles), tles)
-        sampled = stratified_sample(pairs, n_per_shell=10, seed=42)
-        assert set(sampled["norad_id"].unique()) == {2}
+        rows = _daily_tles(1, days=3, line2=LINE2_OFFSHELL)
+        rows.extend(_daily_tles(2, days=3, line2=LINE2_550KM))
+        sat_to_shell = sample_sats(pd.DataFrame(rows), n_per_shell=10, seed=42)
+        assert set(sat_to_shell) == {2}
 
 
 class TestBuildCorpus:

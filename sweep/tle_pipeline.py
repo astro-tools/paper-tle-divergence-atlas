@@ -5,11 +5,17 @@ Day 2 of the paper plan. Pure data preparation: no GMAT, no SGP4 propagation.
 Pipeline (`build_corpus`):
 
     raw_tles            = fetch_tles(window)
-    maneuver_epochs     = detect_maneuver_epochs(raw_tles)
-    starting_tles       = subsample_starting_tles(raw_tles)
-    pairs               = build_pairs(starting_tles, raw_tles, target_dts)
+    sat_to_shell        = sample_sats(raw_tles)        # cap per altitude shell
+    subset              = raw_tles[norad in sat_to_shell]
+    maneuver_epochs     = detect_maneuver_epochs(subset)
+    starting_tles       = subsample_starting_tles(subset)
+    pairs               = build_pairs(starting_tles, subset, target_dts)
     no_maneuver_pairs   = filter_maneuvers(pairs, maneuver_epochs)
-    corpus              = stratified_sample(no_maneuver_pairs)
+    corpus              = attach_shell(no_maneuver_pairs, sat_to_shell)
+
+Sat sampling happens first so the pair-construction loop only sees the ~500
+sats we keep. On the full 10k-sat Starlink fleet this is ~20× faster than
+sampling at the end.
 
 Methodology note. Starlink TLEs are updated ~6 times per day, so strict
 consecutive pairs span only ~4 hours, well short of the staleness range
@@ -317,39 +323,52 @@ def filter_maneuvers(
     return pairs.loc[keep].reset_index(drop=True)
 
 
-def stratified_sample(
-    pairs: pd.DataFrame,
+def sample_sats(
+    tles: pd.DataFrame,
     *,
     n_per_shell: int = DEFAULT_SATS_PER_SHELL,
     seed: int = DEFAULT_SEED,
-) -> pd.DataFrame:
-    """Stratified random sample by altitude shell, capped at `n_per_shell`/shell.
+) -> dict[int, str]:
+    """Pick a stratified sample of satellite NORAD IDs by altitude shell.
 
-    Shell assignment uses the median SMA across a satellite's pairs so a sat
-    that ended the window in a different shell from where it started is binned
-    by its dominant residence.
+    Returns a dict mapping norad_id → shell label. Done up-front so the
+    expensive pair-construction loop never sees sats we'll discard later.
     """
-    if "sma_i_km" not in pairs.columns:
-        raise ValueError("stratified_sample: pairs missing 'sma_i_km' column")
-    if pairs.empty:
-        return pairs
+    required = {"norad_id", "line2"}
+    missing = required - set(tles.columns)
+    if missing:
+        raise ValueError(f"sample_sats: tles missing columns {missing}")
 
     rng = np.random.default_rng(seed)
-
-    sat_smas = pairs.groupby("norad_id")["sma_i_km"].median()
+    # Median SMA per sat across its entire history → robust against a single
+    # outlier TLE near a maneuver.
+    sat_smas = (
+        tles.assign(
+            sma_km=tles["line2"].map(lambda x: sma_km_from_mean_motion(_mean_motion_from_line2(x))),
+        )
+        .groupby("norad_id")["sma_km"]
+        .median()
+    )
     sat_shells = sat_smas.apply(altitude_shell).dropna()
 
-    keep_ids: list[int] = []
+    keep: dict[int, str] = {}
     for shell in ALTITUDE_SHELLS_KM:
         candidates = sat_shells[sat_shells == shell].index.tolist()
         if not candidates:
             continue
         size = min(n_per_shell, len(candidates))
         chosen = rng.choice(candidates, size=size, replace=False)
-        keep_ids.extend(int(x) for x in chosen)
+        for sat in chosen:
+            keep[int(sat)] = shell
+    return keep
 
-    out = pairs[pairs["norad_id"].isin(keep_ids)].copy()
-    out["alt_shell"] = out["norad_id"].map(sat_shells.to_dict())
+
+def attach_shell(pairs: pd.DataFrame, sat_to_shell: dict[int, str]) -> pd.DataFrame:
+    """Attach the alt_shell column to a corpus DataFrame."""
+    if pairs.empty:
+        return pairs
+    out = pairs.copy()
+    out["alt_shell"] = out["norad_id"].map(sat_to_shell)
     return out.reset_index(drop=True)
 
 
@@ -362,17 +381,25 @@ def build_corpus(
     n_per_shell: int = DEFAULT_SATS_PER_SHELL,
     seed: int = DEFAULT_SEED,
 ) -> pd.DataFrame:
-    """End-to-end: maneuver-detect → starting-TLE subsample → pair → filter → sample."""
-    maneuvers = detect_maneuver_epochs(tles, sma_jump_threshold_km=sma_jump_threshold_km)
-    starts = subsample_starting_tles(tles)
+    """End-to-end: sat-sample → maneuver-detect → starting-subsample → pair → filter.
+
+    Sat sampling runs first so the pair-construction loop only sees the
+    ~500 sats we'll keep. On the full 10k-sat Starlink fleet this is ~20×
+    faster than sampling after pair construction.
+    """
+    sat_to_shell = sample_sats(tles, n_per_shell=n_per_shell, seed=seed)
+    subset = tles[tles["norad_id"].isin(sat_to_shell)]
+
+    maneuvers = detect_maneuver_epochs(subset, sma_jump_threshold_km=sma_jump_threshold_km)
+    starts = subsample_starting_tles(subset)
     pairs = build_pairs(
         starts,
-        tles,
+        subset,
         target_dts_sec=target_dts_sec,
         tolerance_sec=tolerance_sec,
     )
     clean = filter_maneuvers(pairs, maneuvers)
-    return stratified_sample(clean, n_per_shell=n_per_shell, seed=seed)
+    return attach_shell(clean, sat_to_shell)
 
 
 def _cli() -> int:
