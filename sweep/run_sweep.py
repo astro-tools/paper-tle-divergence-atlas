@@ -49,7 +49,8 @@ from astropy.time import Time
 from gmat_sweep import LocalJoblibPool, Manifest, RunSpec, Sweep
 from sgp4.api import Satrec, jday
 
-DEFAULT_SMOKE_N: Final = 8
+DEFAULT_SMOKE_PER_BUCKET: Final = 2  # 4 Δt buckets × 2 → N=8 total
+DEFAULT_SMOKE_SEED: Final = 42
 DEFAULT_WORKERS: Final = 8
 
 # --- TEME → MJ2000Eq rotation (Vallado IAU 1976/1980, via erfa) -----------
@@ -291,7 +292,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--smoke",
         action="store_true",
-        help="Run only the first N=8 pairs (for pipeline validation)",
+        help="Run a small stratified-random subset (2 pairs per Δt bucket, "
+        "seed=42) instead of the full corpus — for pipeline validation.",
     )
     parser.add_argument(
         "--workers",
@@ -400,7 +402,16 @@ def main() -> int:
 
     pairs = pd.read_parquet(args.tles).reset_index(drop=True)
     if args.smoke:
-        pairs = pairs.iloc[:DEFAULT_SMOKE_N].reset_index(drop=True)
+        # Stratified-random by Δt bucket so all four horizons (6 h / 1 d / 3 d
+        # / 7 d) are exercised; sats and altitude shells fall out randomly
+        # within each stratum, so a single bad-sat or shell-specific bug
+        # surfaces here rather than escaping to the full sweep. Seeded for
+        # bit-reproducible smoke runs.
+        pairs = (
+            pairs.groupby("target_dt_sec", group_keys=False)
+            .sample(n=DEFAULT_SMOKE_PER_BUCKET, random_state=DEFAULT_SMOKE_SEED)
+            .reset_index(drop=True)
+        )
     print(f"loaded {len(pairs)} pair(s) from {args.tles}", file=sys.stderr)
 
     print("phase 1/3: preprocess", file=sys.stderr)
