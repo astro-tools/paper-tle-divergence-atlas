@@ -1,0 +1,22 @@
+# showyourwork configuration
+# https://show-your.work/en/v0.4.3/config/
+
+# Manuscript filename (without extension): compiles src/tex/ms.tex
+ms_name: ms
+
+# Verbose Snakemake output during build (useful for debugging)
+verbose: false
+
+# Require all output files to be programmatically generatable
+require_inputs: true
+
+# Zenodo datasets fetched on build.
+# Populate after first Zenodo deposit; see plan in
+#   files/research/paper-1-tle-divergence-atlas-plan.md
+datasets: {}
+
+# Per-script dependencies. Add entries as figures land.
+#   - src/scripts/fig_sgp4_growth.py:
+#       - outputs/
+#       - sweep/manifest.jsonl
+dependencies: []

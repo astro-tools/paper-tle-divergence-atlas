@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual envs
+.venv/
+env/
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# showyourwork artifacts
+.showyourwork/
+.snakemake/
+
+# Generated manuscript artifacts
+/ms.pdf
+/ms.aux
+/ms.log
+/ms.out
+/ms.bbl
+/ms.blg
+/ms.synctex.gz
+/ms.fdb_latexmk
+/ms.fls
+/ms.toc
+src/tex/figures/
+src/tex/_minted-*/
+
+# Sweep outputs (large; deposited on Zenodo)
+outputs/
+
+# Local TLE / data caches (small; can be committed if useful)
+*.tle.cache
+*.parquet.cache
+
+# Conda
+.conda/

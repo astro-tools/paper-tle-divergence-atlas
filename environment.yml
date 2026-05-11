@@ -1,0 +1,26 @@
+name: paper-tle-divergence-atlas
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - pip
+  # Scientific Python (preferred conda where available)
+  - numpy>=1.24
+  - scipy>=1.11
+  - pandas>=2.0
+  - pyarrow>=14
+  - matplotlib>=3.8
+  - astropy>=6.0
+  # Astrodynamics
+  - sgp4>=2.23
+  # Build tooling
+  - ruff>=0.6
+  - pytest>=8.0
+  # pip-only deps
+  # NOTE: showyourwork's PyPI release (v0.4.3, Aug 2023) is stale and
+  # incompatible with Python >=3.11. Install from git@main; the current
+  # tree supports 3.11/3.12/3.13 and pins snakemake>=9.18.1.
+  - pip:
+    - showyourwork @ git+https://github.com/showyourwork/showyourwork@main
+    - gmat-sweep>=0.4
+    - gmat-run>=0.4

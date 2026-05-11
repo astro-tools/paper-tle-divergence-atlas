@@ -1,0 +1,77 @@
+%   paper-tle-divergence-atlas -- high-fidelity LEO propagation
+%
+%   This script is driven by sweep/run_sweep.py via the field-override API.
+%   Initial state (Sat.X..VZ), epoch (Sat.Epoch), elapsed-seconds Variable,
+%   and per-satellite parameters (DryMass, Cd, Cr, areas) are set per run.
+
+%----------------------------------------
+%---------- Variables (driven from Python)
+%----------------------------------------
+
+Create Variable elapsed_seconds;
+GMAT elapsed_seconds = 86400;   % 1 day default; overridden per pair
+
+%----------------------------------------
+%---------- Spacecraft
+%----------------------------------------
+
+Create Spacecraft Sat;
+GMAT Sat.DateFormat = UTCGregorian;
+GMAT Sat.Epoch = '01 Jan 2026 00:00:00.000';
+GMAT Sat.CoordinateSystem = EarthMJ2000Eq;
+GMAT Sat.DisplayStateType = Cartesian;
+GMAT Sat.X = 6800.0;
+GMAT Sat.Y = 0.0;
+GMAT Sat.Z = 0.0;
+GMAT Sat.VX = 0.0;
+GMAT Sat.VY = 7.5;
+GMAT Sat.VZ = 0.0;
+GMAT Sat.DryMass = 260.0;      % kg; placeholder for Starlink v2
+GMAT Sat.Cr = 1.5;
+GMAT Sat.SRPArea = 5.0;        % m^2 (placeholder)
+GMAT Sat.Cd = 2.2;
+GMAT Sat.DragArea = 5.0;       % m^2 (placeholder)
+
+%----------------------------------------
+%---------- Force Model
+%----------------------------------------
+
+Create ForceModel FM;
+GMAT FM.CentralBody = Earth;
+GMAT FM.PointMasses = {Sun, Luna};
+GMAT FM.SRP = On;
+GMAT FM.GravityField.Earth.Degree = 70;
+GMAT FM.GravityField.Earth.Order = 70;
+GMAT FM.Drag.AtmosphereModel = MSISE90;
+GMAT FM.ErrorControl = RSSStep;
+
+%----------------------------------------
+%---------- Propagator
+%----------------------------------------
+
+Create Propagator Prop;
+GMAT Prop.FM = FM;
+GMAT Prop.Type = RungeKutta89;
+GMAT Prop.InitialStepSize = 60;
+GMAT Prop.Accuracy = 1e-12;
+GMAT Prop.MinStep = 0.001;
+GMAT Prop.MaxStep = 600;
+
+%----------------------------------------
+%---------- Output
+%----------------------------------------
+
+Create ReportFile FinalState;
+GMAT FinalState.Filename = 'final_state.txt';
+GMAT FinalState.WriteHeaders = On;
+GMAT FinalState.Add = {Sat.UTCGregorian, Sat.X, Sat.Y, Sat.Z, Sat.VX, Sat.VY, Sat.VZ};
+
+%----------------------------------------
+%---------- Mission Sequence
+%----------------------------------------
+
+BeginMissionSequence;
+
+Propagate Prop(Sat) {Sat.ElapsedSecs = elapsed_seconds};
+
+Report FinalState Sat.UTCGregorian Sat.X Sat.Y Sat.Z Sat.VX Sat.VY Sat.VZ;
