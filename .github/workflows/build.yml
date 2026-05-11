@@ -20,10 +20,13 @@ jobs:
           fetch-depth: 0
 
       - name: Build the manuscript
-        uses: showyourwork/showyourwork-action@v1
+        # @v1 is stale (April 2022); main has the modern Python-3.11+ codepath.
+        uses: showyourwork/showyourwork-action@main
         with:
           conda-cache-number: 0
-          showyourwork-spec: ">=0.4,<0.5"
+          # Match environment.yml: pull showyourwork from git@main, not PyPI
+          # (PyPI v0.4.3 is incompatible with Python 3.11+).
+          showyourwork-spec: "git+https://github.com/showyourwork/showyourwork@main"
 
       - name: Upload PDF
         uses: actions/upload-artifact@v4
