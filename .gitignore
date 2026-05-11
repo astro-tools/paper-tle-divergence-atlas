@@ -43,6 +43,11 @@ src/tex/_minted-*/
 # Sweep outputs (large; deposited on Zenodo)
 outputs/
 
+# Sweep manifest from smoke/dev runs. The final sweep's manifest.jsonl gets
+# force-added (`git add -f`) when the production sweep is locked, per the
+# Day-3/4 acceptance contract.
+sweep/manifest.jsonl
+
 # Raw Space-Track TLE dump (~100 MB; one-time fetch, not for commit).
 # The post-sample corpus (src/data/tles_cache.parquet) IS committed.
 src/data/tles_raw.parquet
