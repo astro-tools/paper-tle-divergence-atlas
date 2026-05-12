@@ -26,15 +26,16 @@ GMAT Sat.Z = 0.0;
 GMAT Sat.VX = 0.0;
 GMAT Sat.VY = 7.5;
 GMAT Sat.VZ = 0.0;
-% Starlink v2-mini bias for the active fleet. Mass, drag area, and SRP area
-% are placeholders held constant across the corpus (no public per-sat data);
-% per-run overrides via Sat.DryMass / Sat.DragArea / Sat.SRPArea are wired
-% through gmat-sweep should that ever change.
-GMAT Sat.DryMass = 800.0;      % kg; Starlink v2-mini approximate dry mass
+% Starlink v2-mini fallback values. Production runs override DryMass / Cd /
+% DragArea / Cr / SRPArea per pair via sweep/run_sweep.py, sourcing dry mass
+% from McDowell's GCAT (planet4589.org) per NORAD ID and bucketing drag/SRP
+% area from GCAT's structural Span. These literals are kept only so the
+% script runs standalone outside the sweep driver.
+GMAT Sat.DryMass = 800.0;      % kg
 GMAT Sat.Cr = 1.5;
-GMAT Sat.SRPArea = 3.5;        % m^2 (attitude-averaged placeholder)
+GMAT Sat.SRPArea = 3.5;        % m^2 (attitude-averaged)
 GMAT Sat.Cd = 2.2;
-GMAT Sat.DragArea = 3.5;       % m^2 (attitude-averaged placeholder)
+GMAT Sat.DragArea = 3.5;       % m^2 (attitude-averaged)
 
 %----------------------------------------
 %---------- Force Model

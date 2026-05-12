@@ -49,6 +49,8 @@ from astropy.time import Time
 from gmat_sweep import LocalJoblibPool, Manifest, RunSpec, Sweep
 from sgp4.api import Satrec, jday
 
+from sweep.spacecraft_props import CD, CR
+
 DEFAULT_SMOKE_N: Final = 8  # split evenly across the Δt buckets
 DEFAULT_SMOKE_SEED: Final = 42
 DEFAULT_WORKERS: Final = 8
@@ -150,6 +152,9 @@ class _Preprocessed:
     r_sgp4_pred_mj_km: np.ndarray
     r_truth_mj_km: np.ndarray
     v_truth_mj_km_s: np.ndarray
+    dry_mass_kg: float
+    drag_area_m2: float
+    srp_area_m2: float
 
 
 def _preprocess_pair(run_id: int, pair: pd.Series) -> _Preprocessed:
@@ -177,6 +182,9 @@ def _preprocess_pair(run_id: int, pair: pd.Series) -> _Preprocessed:
         r_sgp4_pred_mj_km=r_pred_mj,
         r_truth_mj_km=r_truth_mj,
         v_truth_mj_km_s=v_truth_mj,
+        dry_mass_kg=float(pair["dry_mass_kg"]),
+        drag_area_m2=float(pair["drag_area_m2"]),
+        srp_area_m2=float(pair["srp_area_m2"]),
     )
 
 
@@ -200,6 +208,11 @@ def _build_run_spec(pre: _Preprocessed, mission_path: Path, output_root: Path) -
             "Sat.VX": float(pre.v_init_mj_km_s[0]),
             "Sat.VY": float(pre.v_init_mj_km_s[1]),
             "Sat.VZ": float(pre.v_init_mj_km_s[2]),
+            "Sat.DryMass": float(pre.dry_mass_kg),
+            "Sat.Cd": float(CD),
+            "Sat.DragArea": float(pre.drag_area_m2),
+            "Sat.Cr": float(CR),
+            "Sat.SRPArea": float(pre.srp_area_m2),
             # GMAT Variables override via the .Value pseudo-field: bare name
             # alone fails gmat-run's "Resource.Field" path validation.
             "elapsed_seconds.Value": float(pre.actual_dt_sec),
@@ -331,34 +344,25 @@ def _dispatch_sweep(
     workers: int,
 ) -> None:
     run_specs = [_build_run_spec(p, mission, output_dir) for p in preprocessed]
+    override_columns = (
+        "Sat.Epoch",
+        "Sat.X",
+        "Sat.Y",
+        "Sat.Z",
+        "Sat.VX",
+        "Sat.VY",
+        "Sat.VZ",
+        "Sat.DryMass",
+        "Sat.Cd",
+        "Sat.DragArea",
+        "Sat.Cr",
+        "Sat.SRPArea",
+        "elapsed_seconds.Value",
+    )
     parameter_spec = {
         "_kind": "explicit",
-        "columns": [
-            "Sat.Epoch",
-            "Sat.X",
-            "Sat.Y",
-            "Sat.Z",
-            "Sat.VX",
-            "Sat.VY",
-            "Sat.VZ",
-            "elapsed_seconds.Value",
-        ],
-        "rows": [
-            [
-                spec.overrides[c]
-                for c in (
-                    "Sat.Epoch",
-                    "Sat.X",
-                    "Sat.Y",
-                    "Sat.Z",
-                    "Sat.VX",
-                    "Sat.VY",
-                    "Sat.VZ",
-                    "elapsed_seconds.Value",
-                )
-            ]
-            for spec in run_specs
-        ],
+        "columns": list(override_columns),
+        "rows": [[spec.overrides[c] for c in override_columns] for spec in run_specs],
     }
     with LocalJoblibPool(max_workers=workers) as pool:
         Sweep(

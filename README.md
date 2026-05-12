@@ -43,7 +43,7 @@ Bypass the Zenodo cache and recompute every parquet:
 # (https://gmat.gsfc.nasa.gov) and set GMAT_ROOT.
 export GMAT_ROOT=~/gmat-R2026a
 
-python sweep/run_sweep.py \
+python -m sweep.run_sweep \
     --mission sweep/mission.script \
     --tles src/data/tles_cache.parquet \
     --output-dir outputs/ \
@@ -65,6 +65,7 @@ Expected runtime: ~3 hours on 8 cores.
 - **Code:** this repository (MIT licensed).
 - **Sweep outputs:** Zenodo concept DOI [TBD before v0.1.0 release].
 - **Input data:** Starlink TLEs from CelesTrak (cached in `src/data/`); solar activity from CelesTrak's space weather file.
+- **Spacecraft properties:** per-NORAD-ID dry mass and structural span are taken from Jonathan McDowell's *General Catalog of Artificial Space Objects* ([GCAT](https://planet4589.org/space/gcat/)), with a snapshot of the relevant subset cached in `src/data/`. Cite McDowell, J. C. 2020, AJ, 159, 5.
 
 ## Citation
 
