@@ -48,13 +48,13 @@ GMAT FM.CentralBody = Earth;
 GMAT FM.PrimaryBodies = {Earth};
 GMAT FM.PointMasses = {Sun, Luna};
 GMAT FM.SRP = On;
-% EGM96 70x70: GMAT R2026a ships EGM96.cof out of the box; sourcing
-% EGM2008 in GMAT .cof format is tracked as a follow-up. The difference
-% vs. EGM2008 at degree 70 is sub-mm at LEO, well below this paper's
-% km-scale error budget.
+% EGM2008 70x70 (Pavlis et al. 2012, JGR Solid Earth). The .cof file is
+% not shipped with GMAT R2026a; install it via `make install-egm2008`,
+% which converts NGA's flat-text spherical-harmonic coefficients into
+% the GMAT .cof format expected by GravityField.
 GMAT FM.GravityField.Earth.Degree = 70;
 GMAT FM.GravityField.Earth.Order = 70;
-GMAT FM.GravityField.Earth.PotentialFile = 'EGM96.cof';
+GMAT FM.GravityField.Earth.PotentialFile = 'EGM2008.cof';
 GMAT FM.Drag.AtmosphereModel = MSISE90;
 GMAT FM.ErrorControl = RSSStep;
 
