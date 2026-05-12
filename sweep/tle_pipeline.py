@@ -419,6 +419,13 @@ def _cli() -> int:
     pb.add_argument("--sma-threshold-km", type=float, default=DEFAULT_MANEUVER_THRESHOLD_KM)
     pb.add_argument("--per-shell", type=int, default=DEFAULT_SATS_PER_SHELL)
     pb.add_argument("--seed", type=int, default=DEFAULT_SEED)
+    pb.add_argument(
+        "--satcat",
+        type=Path,
+        default=None,
+        help="If given, parse GCAT satcat.tsv and attach per-sat dry_mass_kg / "
+        "span_m / drag_area_m2 / srp_area_m2 / gcat_pl_name columns.",
+    )
 
     args = parser.parse_args()
 
@@ -436,6 +443,11 @@ def _cli() -> int:
             n_per_shell=args.per_shell,
             seed=args.seed,
         )
+        if args.satcat is not None:
+            from sweep.spacecraft_props import attach_spacecraft_props, parse_gcat_satcat
+
+            satcat = parse_gcat_satcat(args.satcat)
+            corpus = attach_spacecraft_props(corpus, satcat)
         args.out.parent.mkdir(parents=True, exist_ok=True)
         corpus.to_parquet(args.out, index=False)
         print(

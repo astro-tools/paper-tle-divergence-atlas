@@ -53,6 +53,10 @@ sweep/manifest.jsonl
 src/data/tles_raw.parquet
 src/data/_validate_pairs.png
 
+# Raw GCAT satcat dump (~18 MB; one-time fetch via `make fetch-satcat`).
+# Per-NORAD-ID props derived from this are baked into tles_cache.parquet.
+src/data/gcat_satcat.tsv
+
 # Local TLE / data caches (small; can be committed if useful)
 *.tle.cache
 *.parquet.cache

@@ -1,11 +1,14 @@
-.PHONY: help env fetch-tles build-corpus build smoke sweep figures clean
+.PHONY: help env fetch-tles fetch-satcat build-corpus build smoke sweep figures clean
 
 help:
 	@echo "Targets:"
 	@echo "  env          -- create the conda env (one-time setup; env stored at ~/miniforge3/envs/)"
 	@echo "  fetch-tles   -- one-time Space-Track fetch into src/data/tles_raw.parquet"
 	@echo "                  Requires SPACETRACK_USERNAME and SPACETRACK_PASSWORD env vars."
-	@echo "  build-corpus -- pairs + maneuver filter + stratified sample → src/data/tles_cache.parquet"
+	@echo "  fetch-satcat -- one-time fetch of McDowell's GCAT satcat.tsv (~18 MB) used for"
+	@echo "                  per-NORAD-ID dry mass and span."
+	@echo "  build-corpus -- pairs + maneuver filter + stratified sample + GCAT props →"
+	@echo "                  src/data/tles_cache.parquet"
 	@echo "  build        -- render PDF via showyourwork (uses Zenodo-cached outputs)"
 	@echo "  smoke        -- run an N=8 sweep against the cached corpus (requires GMAT)"
 	@echo "  sweep        -- run the gmat-sweep locally (requires GMAT; ~3 h on 8 cores)"
@@ -22,16 +25,21 @@ fetch-tles:
 	    --window src/data/window.json \
 	    --out src/data/tles_raw.parquet
 
+fetch-satcat:
+	python -m sweep.spacecraft_props fetch-satcat \
+	    --out src/data/gcat_satcat.tsv
+
 build-corpus:
 	python -m sweep.tle_pipeline build \
 	    --raw src/data/tles_raw.parquet \
+	    --satcat src/data/gcat_satcat.tsv \
 	    --out src/data/tles_cache.parquet
 
 build:
 	showyourwork build
 
 smoke:
-	python sweep/run_sweep.py \
+	python -m sweep.run_sweep \
 	    --smoke \
 	    --workers 4 \
 	    --mission sweep/mission.script \
@@ -40,7 +48,7 @@ smoke:
 	    --manifest sweep/manifest.jsonl
 
 sweep:
-	python sweep/run_sweep.py \
+	python -m sweep.run_sweep \
 	    --mission sweep/mission.script \
 	    --tles src/data/tles_cache.parquet \
 	    --output-dir outputs/ \

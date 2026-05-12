@@ -137,8 +137,17 @@ class TestPreprocessPair:
                 "line2_i": LINE2_A,
                 "line1_j": LINE1_B,
                 "line2_j": LINE2_B,
+                "dry_mass_kg": 248.0,
+                "drag_area_m2": 5.0,
+                "srp_area_m2": 5.0,
             }
         )
+
+    def test_props_flow_through_to_preprocessed(self) -> None:
+        pre = _preprocess_pair(0, self._pair())
+        assert pre.dry_mass_kg == 248.0
+        assert pre.drag_area_m2 == 5.0
+        assert pre.srp_area_m2 == 5.0
 
     def test_returns_leo_scale_states(self) -> None:
         pre = _preprocess_pair(0, self._pair())
@@ -193,6 +202,9 @@ class TestBuildRunSpec:
             r_sgp4_pred_mj_km=np.array([0.0, 0.0, 0.0]),
             r_truth_mj_km=np.array([0.0, 0.0, 0.0]),
             v_truth_mj_km_s=np.array([0.0, 0.0, 0.0]),
+            dry_mass_kg=305.0,
+            drag_area_m2=5.0,
+            srp_area_m2=5.0,
         )
 
     def test_overrides_complete(self) -> None:
@@ -207,8 +219,25 @@ class TestBuildRunSpec:
             "Sat.VX",
             "Sat.VY",
             "Sat.VZ",
+            "Sat.DryMass",
+            "Sat.Cd",
+            "Sat.DragArea",
+            "Sat.Cr",
+            "Sat.SRPArea",
             "elapsed_seconds.Value",
         }
+
+    def test_per_sat_props_propagate_into_overrides(self) -> None:
+        from pathlib import Path
+
+        from sweep.spacecraft_props import CD, CR
+
+        spec = _build_run_spec(self._pre(), Path("m.script"), Path("outputs"))
+        assert spec.overrides["Sat.DryMass"] == 305.0
+        assert spec.overrides["Sat.DragArea"] == 5.0
+        assert spec.overrides["Sat.SRPArea"] == 5.0
+        assert spec.overrides["Sat.Cd"] == CD
+        assert spec.overrides["Sat.Cr"] == CR
 
     def test_output_dir_nests_run_id(self) -> None:
         from pathlib import Path
