@@ -43,14 +43,15 @@ Bypass the Zenodo cache and recompute every parquet:
 # (https://gmat.gsfc.nasa.gov) and set GMAT_ROOT.
 export GMAT_ROOT=~/gmat-R2026a
 
-python -m sweep.run_sweep \
-    --mission sweep/mission.script \
-    --tles src/data/tles_cache.parquet \
-    --output-dir outputs/ \
-    --manifest sweep/manifest.jsonl
+make sweep              # ~10 h wall on 8 cores over the 24,641-pair corpus
+make aggregate          # concat outputs/run_*.parquet → outputs/all_runs.parquet
+make sweep-stats        # per-bucket / per-(shell, gen) medians + manifest failures
+make diagnostics        # outputs/_diagnostic_sweep_scatter.png — sanity scatter
 ```
 
-Expected runtime: ~3 hours on 8 cores.
+The sweep is pausable: a Ctrl-C, sleep, or reboot leaves a partial
+`sweep/manifest.jsonl`; re-running `make sweep` picks up only the
+missing runs.
 
 ## Compute requirements
 
