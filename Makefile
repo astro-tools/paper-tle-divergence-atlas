@@ -1,4 +1,4 @@
-.PHONY: help env fetch-tles fetch-satcat fetch-sw build-corpus build smoke sweep figures clean
+.PHONY: help env fetch-tles fetch-satcat fetch-sw install-egm2008 build-corpus build smoke sweep figures clean
 
 help:
 	@echo "Targets:"
@@ -9,6 +9,9 @@ help:
 	@echo "                  per-NORAD-ID dry mass and span."
 	@echo "  fetch-sw     -- one-time fetch of CelesTrak's space-weather file used for"
 	@echo "                  per-run F10.7 / Ap annotations."
+	@echo "  install-egm2008 -- one-time download + convert of NGA's EGM2008 coefficient"
+	@echo "                     file into \$$GMAT_ROOT/data/gravity/earth/EGM2008.cof"
+	@echo "                     (idempotent; safe to re-run)."
 	@echo "  build-corpus -- pairs + maneuver filter + stratified sample + GCAT props →"
 	@echo "                  src/data/tles_cache.parquet"
 	@echo "  build        -- render PDF via showyourwork (uses Zenodo-cached outputs)"
@@ -36,6 +39,9 @@ fetch-sw: src/data/sw_cache.parquet
 src/data/sw_cache.parquet:
 	python -m sweep.space_weather fetch \
 	    --out $@
+
+install-egm2008:
+	python -m sweep.install_egm2008
 
 build-corpus: src/data/sw_cache.parquet
 	python -m sweep.tle_pipeline build \

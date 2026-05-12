@@ -24,7 +24,12 @@ make build
 To re-run the underlying sweep (slow; requires GMAT):
 
 ```bash
-make sweep        # or invoke sweep/run_sweep.py directly
+make install-egm2008    # one-time: fetch NGA's EGM2008 coefficients and install
+                        # the .cof file into $GMAT_ROOT/data/gravity/earth/.
+                        # If NGA is unreachable, download
+                        # https://earth-info.nga.mil/php/download.php?file=egm-08spherical
+                        # manually and pass it with `--source <path>`.
+make sweep              # or invoke sweep/run_sweep.py directly
 ```
 
 ## Local checks before pushing
