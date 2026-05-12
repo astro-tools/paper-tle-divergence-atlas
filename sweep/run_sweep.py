@@ -50,8 +50,16 @@ import erfa
 import numpy as np
 import pandas as pd
 from astropy.time import Time
-from gmat_sweep import LocalJoblibPool, Manifest, RunSpec, Sweep
+from gmat_sweep import (
+    LocalJoblibPool,
+    Manifest,
+    ManifestEntry,
+    RunSpec,
+    Sweep,
+    canonical_script_sha256,
+)
 from sgp4.api import Satrec, jday
+from tqdm import tqdm
 
 from sweep.space_weather import SwRow, load_sw_cache, lookup_for_epoch
 from sweep.spacecraft_props import CD, CR
@@ -423,28 +431,17 @@ def _dispatch_sweep(
     workers: int,
     resume: bool,
 ) -> None:
-    with LocalJoblibPool(max_workers=workers) as pool:
-        if resume:
-            # Re-run only failed and missing entries. The manifest's
-            # parameter_spec is the source of truth for the run set; the
-            # preprocessed list isn't passed in here because resume() will
-            # only ever dispatch the failed/missing subset, which is
-            # exactly what `preprocessed` contains given the upstream
-            # filter in `_filter_pairs_needing_postprocess`.
-            Sweep.from_manifest(
-                manifest_path,
-                mission,
-                backend=pool,
-                progress=True,
-            ).resume()
-            return
+    if resume:
+        _resume_dispatch(preprocessed, mission, output_dir, manifest_path, workers)
+        return
 
-        run_specs = [_build_run_spec(p, mission, output_dir) for p in preprocessed]
-        parameter_spec = {
-            "_kind": "explicit",
-            "columns": list(_OVERRIDE_COLUMNS),
-            "rows": [[spec.overrides[c] for c in _OVERRIDE_COLUMNS] for spec in run_specs],
-        }
+    run_specs = [_build_run_spec(p, mission, output_dir) for p in preprocessed]
+    parameter_spec = {
+        "_kind": "explicit",
+        "columns": list(_OVERRIDE_COLUMNS),
+        "rows": [[spec.overrides[c] for c in _OVERRIDE_COLUMNS] for spec in run_specs],
+    }
+    with LocalJoblibPool(max_workers=workers) as pool:
         Sweep(
             runs=run_specs,
             backend=pool,
@@ -455,6 +452,76 @@ def _dispatch_sweep(
             sweep_seed=None,
             progress=True,
         ).run()
+
+
+def _resume_dispatch(
+    preprocessed: list[_Preprocessed],
+    mission: Path,
+    output_dir: Path,
+    manifest_path: Path,
+    workers: int,
+) -> None:
+    """Re-dispatch only failed and missing runs against the existing manifest.
+
+    We do this manually rather than via `Sweep.from_manifest().resume()`
+    because gmat-sweep's `from_manifest` derives per-run output_dir from
+    `manifest_path.parent` and uses its default `run-<id>` (hyphen)
+    naming — landing resumed outputs in `sweep/run-<id>/` for our
+    layout, not `outputs/run_<id>/` where the fresh dispatch writes.
+    Building our own run_specs preserves the per-run output_dir; the
+    manifest is then appended via the documented `ManifestEntry`
+    contract so the resume looks identical on disk to a `Sweep.resume()`
+    call.
+
+    Mirrors the safety check from `Sweep.from_manifest`: if the on-disk
+    mission script hash differs from the manifest's recorded
+    `script_sha256`, the resumed runs would load a different script
+    than the original ok runs and the aggregated frame would mix two
+    sweeps. Refuses with `SystemExit` in that case.
+    """
+    manifest = Manifest.load(manifest_path)
+
+    current_sha = canonical_script_sha256(mission)
+    if current_sha != manifest.script_sha256:
+        raise SystemExit(
+            f"mission script hash drifted since the manifest was written: "
+            f"manifest={manifest.script_sha256[:12]}, current={current_sha[:12]}. "
+            f"Delete {manifest_path} to start fresh, or restore the original script."
+        )
+
+    expected = [p.run_id for p in preprocessed]
+    failed = set(Manifest.find_failed(manifest_path))
+    missing = set(Manifest.find_missing(manifest_path, expected))
+    to_retry = failed | missing
+    pre_subset = [p for p in preprocessed if p.run_id in to_retry]
+    if not pre_subset:
+        print("nothing to resume — all expected entries are ok", file=sys.stderr)
+        return
+
+    run_specs = sorted(
+        (_build_run_spec(p, mission, output_dir) for p in pre_subset),
+        key=lambda s: s.run_id,
+    )
+    print(
+        f"resume: {len(run_specs)} run(s) to re-dispatch "
+        f"({len(failed)} failed + {len(missing)} missing)",
+        file=sys.stderr,
+    )
+
+    progress = tqdm(total=len(run_specs), desc="gmat-sweep resume", unit="run")
+    try:
+        with LocalJoblibPool(max_workers=workers) as pool:
+            for spec, outcome in pool.imap(run_specs):
+                entry = ManifestEntry.from_outcome(
+                    outcome,
+                    overrides=spec.overrides,
+                    log_path=spec.output_dir / "worker.log",
+                )
+                manifest.append_entry(entry)
+                progress.update(1)
+        manifest.close()
+    finally:
+        progress.close()
 
 
 def _postprocess_all(

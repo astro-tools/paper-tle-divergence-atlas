@@ -37,6 +37,7 @@ from sweep.run_sweep import (
     _preprocess_pair,
     _Preprocessed,
     _resume_compatible,
+    _resume_dispatch,
     _teme_to_mj2000,
     _teme_to_mj2000_matrix,
 )
@@ -396,6 +397,45 @@ class TestResumeCompatible:
         self._write_manifest(path, run_count=8)
         with pytest.raises(SystemExit, match="run_count=8.*24641"):
             _resume_compatible(path, n_corpus_pairs=24_641)
+
+
+class TestResumeDispatchScriptHashCheck:
+    """Resume safety: refuse when the mission script changed since the manifest."""
+
+    def _write_manifest(self, path: Path, *, script_sha256: str) -> None:
+        header = {
+            "schema_version": 1,
+            "script_sha256": script_sha256,
+            "gmat_sweep_version": "t",
+            "gmat_run_version": "t",
+            "gmat_install_version": "t",
+            "python_version": "3.12",
+            "os_platform": "t",
+            "sweep_seed": None,
+            "parameter_spec": {"_kind": "explicit", "columns": [], "rows": []},
+            "run_count": 1,
+            "backend": "t",
+        }
+        path.write_text(json.dumps(header, sort_keys=True) + "\n", encoding="utf-8")
+
+    def test_script_hash_drift_raises_systemexit(self, tmp_path) -> None:
+        # A drifted manifest must refuse resume — otherwise the resumed
+        # runs would load a different script than the already-ok runs
+        # and the aggregated frame would be a mongrel.
+        script = tmp_path / "mission.script"
+        script.write_text("Create Spacecraft Sat\n", encoding="utf-8")
+
+        manifest = tmp_path / "manifest.jsonl"
+        self._write_manifest(manifest, script_sha256="b" * 64)  # not the real hash
+
+        with pytest.raises(SystemExit, match="script hash drifted"):
+            _resume_dispatch(
+                preprocessed=[],
+                mission=script,
+                output_dir=tmp_path,
+                manifest_path=manifest,
+                workers=1,
+            )
 
 
 class TestPostprocessAllSkipsExistingParquets:
