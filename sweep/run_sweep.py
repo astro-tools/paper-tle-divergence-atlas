@@ -29,13 +29,17 @@ Pipeline (three phases, single process for the driver):
        to the truth state's RSW frame, and emit a one-row
        `outputs/run_<id>.parquet` with the comparison columns.
 
-`f107` and `ap` columns are written as NaN; space-weather data fetch and
-join is deferred to a follow-up before figure F7 (Day 6).
+`f107` (daily observed F10.7, sfu) and `ap` (planetary daily Ap) are
+joined from `src/data/sw_cache.parquet` by `date(epoch_i)` UTC. The
+cache is built by `sweep.space_weather`; a missing date raises rather
+than silently NaN-ing so a corpus window extension that outruns the
+cached SW window fails loudly.
 """
 
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import sys
 import time
 from dataclasses import dataclass
@@ -49,11 +53,13 @@ from astropy.time import Time
 from gmat_sweep import LocalJoblibPool, Manifest, RunSpec, Sweep
 from sgp4.api import Satrec, jday
 
+from sweep.space_weather import SwRow, load_sw_cache, lookup_for_epoch
 from sweep.spacecraft_props import CD, CR
 
 DEFAULT_SMOKE_N: Final = 8  # split evenly across the Δt buckets
 DEFAULT_SMOKE_SEED: Final = 42
 DEFAULT_WORKERS: Final = 8
+DEFAULT_SW_CACHE: Final = Path("src/data/sw_cache.parquet")
 
 # --- TEME → MJ2000Eq rotation (Vallado IAU 1976/1980, via erfa) -----------
 
@@ -155,9 +161,15 @@ class _Preprocessed:
     dry_mass_kg: float
     drag_area_m2: float
     srp_area_m2: float
+    f107_obs: float
+    ap_daily: float
 
 
-def _preprocess_pair(run_id: int, pair: pd.Series) -> _Preprocessed:
+def _preprocess_pair(
+    run_id: int,
+    pair: pd.Series,
+    sw_lookup: dict[dt.date, SwRow],
+) -> _Preprocessed:
     jd_i, fr_i = _jd_fr_from_epoch(pair["epoch_i"])
     r_init_teme, v_init_teme = _sgp4_state_teme(pair["line1_i"], pair["line2_i"], jd_i, fr_i)
     r_init_mj, v_init_mj = _teme_to_mj2000(r_init_teme, v_init_teme, pair["epoch_i"])
@@ -168,6 +180,8 @@ def _preprocess_pair(run_id: int, pair: pd.Series) -> _Preprocessed:
 
     r_truth_teme, v_truth_teme = _sgp4_state_teme(pair["line1_j"], pair["line2_j"], jd_j, fr_j)
     r_truth_mj, v_truth_mj = _teme_to_mj2000(r_truth_teme, v_truth_teme, pair["epoch_j"])
+
+    sw = lookup_for_epoch(sw_lookup, pair["epoch_i"])
 
     return _Preprocessed(
         run_id=run_id,
@@ -185,6 +199,8 @@ def _preprocess_pair(run_id: int, pair: pd.Series) -> _Preprocessed:
         dry_mass_kg=float(pair["dry_mass_kg"]),
         drag_area_m2=float(pair["drag_area_m2"]),
         srp_area_m2=float(pair["srp_area_m2"]),
+        f107_obs=sw.f107_obs,
+        ap_daily=sw.ap_daily,
     )
 
 
@@ -264,9 +280,8 @@ def _postprocess_run(pre: _Preprocessed, report_path: Path, out_path: Path) -> d
         "dr_hifi_radial_km": hifi_r,
         "dr_hifi_along_km": hifi_a,
         "dr_hifi_cross_km": hifi_c,
-        # SW data fetch deferred to a follow-up before F7 (Day 6).
-        "f107": float("nan"),
-        "ap": float("nan"),
+        "f107": pre.f107_obs,
+        "ap": pre.ap_daily,
     }
     pd.DataFrame([row]).to_parquet(out_path, index=False)
     return row
@@ -320,14 +335,24 @@ def parse_args() -> argparse.Namespace:
         default=DEFAULT_WORKERS,
         help="Number of parallel workers (joblib backend)",
     )
+    parser.add_argument(
+        "--sw-cache",
+        type=Path,
+        default=DEFAULT_SW_CACHE,
+        help=f"Path to space-weather cache parquet (default {DEFAULT_SW_CACHE}); "
+        "build with `make fetch-sw`",
+    )
     return parser.parse_args()
 
 
-def _preprocess_all(pairs: pd.DataFrame) -> list[_Preprocessed]:
+def _preprocess_all(
+    pairs: pd.DataFrame,
+    sw_lookup: dict[dt.date, SwRow],
+) -> list[_Preprocessed]:
     out: list[_Preprocessed] = []
     for run_id, pair in pairs.iterrows():
         try:
-            out.append(_preprocess_pair(int(run_id), pair))
+            out.append(_preprocess_pair(int(run_id), pair, sw_lookup))
         except RuntimeError as exc:
             print(
                 f"  skip run_id={run_id} sat={pair['norad_id']}: {exc}",
@@ -425,9 +450,15 @@ def main() -> int:
         )
     print(f"loaded {len(pairs)} pair(s) from {args.tles}", file=sys.stderr)
 
+    sw_lookup = load_sw_cache(args.sw_cache)
+    print(
+        f"loaded {len(sw_lookup)} space-weather day(s) from {args.sw_cache}",
+        file=sys.stderr,
+    )
+
     print("phase 1/3: preprocess", file=sys.stderr)
     t0 = time.monotonic()
-    preprocessed = _preprocess_all(pairs)
+    preprocessed = _preprocess_all(pairs, sw_lookup)
     print(
         f"  preprocessed {len(preprocessed)}/{len(pairs)} pair(s) in {time.monotonic() - t0:.1f} s",
         file=sys.stderr,

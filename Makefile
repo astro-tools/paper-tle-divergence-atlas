@@ -1,4 +1,4 @@
-.PHONY: help env fetch-tles fetch-satcat build-corpus build smoke sweep figures clean
+.PHONY: help env fetch-tles fetch-satcat fetch-sw build-corpus build smoke sweep figures clean
 
 help:
 	@echo "Targets:"
@@ -7,6 +7,8 @@ help:
 	@echo "                  Requires SPACETRACK_USERNAME and SPACETRACK_PASSWORD env vars."
 	@echo "  fetch-satcat -- one-time fetch of McDowell's GCAT satcat.tsv (~18 MB) used for"
 	@echo "                  per-NORAD-ID dry mass and span."
+	@echo "  fetch-sw     -- one-time fetch of CelesTrak's space-weather file used for"
+	@echo "                  per-run F10.7 / Ap annotations."
 	@echo "  build-corpus -- pairs + maneuver filter + stratified sample + GCAT props →"
 	@echo "                  src/data/tles_cache.parquet"
 	@echo "  build        -- render PDF via showyourwork (uses Zenodo-cached outputs)"
@@ -29,7 +31,13 @@ fetch-satcat:
 	python -m sweep.spacecraft_props fetch-satcat \
 	    --out src/data/gcat_satcat.tsv
 
-build-corpus:
+fetch-sw: src/data/sw_cache.parquet
+
+src/data/sw_cache.parquet:
+	python -m sweep.space_weather fetch \
+	    --out $@
+
+build-corpus: src/data/sw_cache.parquet
 	python -m sweep.tle_pipeline build \
 	    --raw src/data/tles_raw.parquet \
 	    --satcat src/data/gcat_satcat.tsv \
