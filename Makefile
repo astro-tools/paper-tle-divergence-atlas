@@ -79,6 +79,7 @@ aggregate:
 	python -m sweep.aggregate \
 	    --output-dir outputs/ \
 	    --tles src/data/tles_cache.parquet \
+	    --manifest sweep/manifest.jsonl \
 	    --out outputs/all_runs.parquet
 
 sweep-stats:
