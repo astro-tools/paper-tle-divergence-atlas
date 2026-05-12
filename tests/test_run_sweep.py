@@ -17,6 +17,8 @@ N=8 smoke run, not pytest. What's tested here:
 from __future__ import annotations
 
 import datetime as dt
+import json
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -28,10 +30,13 @@ from astropy.time import Time
 from sweep.run_sweep import (
     _build_run_spec,
     _decompose_rsw,
+    _filter_pairs_needing_postprocess,
     _gmat_epoch_string,
+    _postprocess_all,
     _postprocess_run,
     _preprocess_pair,
     _Preprocessed,
+    _resume_compatible,
     _teme_to_mj2000,
     _teme_to_mj2000_matrix,
 )
@@ -331,6 +336,141 @@ class TestPostprocessRunSchema:
         assert df["ap"].iloc[0] == pytest.approx(8.0)
         assert np.isfinite(df["f107"].iloc[0])
         assert np.isfinite(df["ap"].iloc[0])
+
+
+class TestFilterPairsNeedingPostprocess:
+    """Resume helper: keep pairs that don't already have a comparison parquet."""
+
+    def _pairs(self, n: int) -> pd.DataFrame:
+        return pd.DataFrame({"norad_id": list(range(n)), "x": [0] * n}).reset_index(drop=True)
+
+    def test_no_parquets_returns_all(self, tmp_path) -> None:
+        pairs = self._pairs(5)
+        result = _filter_pairs_needing_postprocess(pairs, tmp_path)
+        assert len(result) == 5
+
+    def test_drops_pairs_with_existing_parquet(self, tmp_path) -> None:
+        pairs = self._pairs(5)
+        (tmp_path / "run_0.parquet").write_bytes(b"x")
+        (tmp_path / "run_3.parquet").write_bytes(b"x")
+        result = _filter_pairs_needing_postprocess(pairs, tmp_path)
+        assert list(result.index) == [1, 2, 4]
+
+    def test_all_done_returns_empty(self, tmp_path) -> None:
+        pairs = self._pairs(3)
+        for i in range(3):
+            (tmp_path / f"run_{i}.parquet").write_bytes(b"x")
+        assert len(_filter_pairs_needing_postprocess(pairs, tmp_path)) == 0
+
+
+class TestResumeCompatible:
+    """Resume gate: refuse when the manifest doesn't match the current corpus."""
+
+    def _write_manifest(self, path: Path, *, run_count: int) -> None:
+        header = {
+            "schema_version": 1,
+            "script_sha256": "0" * 64,
+            "gmat_sweep_version": "t",
+            "gmat_run_version": "t",
+            "gmat_install_version": "t",
+            "python_version": "3.12",
+            "os_platform": "t",
+            "sweep_seed": None,
+            "parameter_spec": {"_kind": "explicit", "columns": [], "rows": []},
+            "run_count": run_count,
+            "backend": "t",
+        }
+        path.write_text(json.dumps(header, sort_keys=True) + "\n", encoding="utf-8")
+
+    def test_missing_manifest_is_fresh(self, tmp_path) -> None:
+        assert _resume_compatible(tmp_path / "missing.jsonl", n_corpus_pairs=10) is False
+
+    def test_matching_run_count_resumes(self, tmp_path) -> None:
+        path = tmp_path / "manifest.jsonl"
+        self._write_manifest(path, run_count=100)
+        assert _resume_compatible(path, n_corpus_pairs=100) is True
+
+    def test_mismatched_run_count_refuses(self, tmp_path) -> None:
+        # Smoke (8 rows) → sweep (24641 rows) is the canonical case here.
+        path = tmp_path / "manifest.jsonl"
+        self._write_manifest(path, run_count=8)
+        with pytest.raises(SystemExit, match="run_count=8.*24641"):
+            _resume_compatible(path, n_corpus_pairs=24_641)
+
+
+class TestPostprocessAllSkipsExistingParquets:
+    """Idempotency: re-running postprocess does not rewrite finished parquets."""
+
+    def _entry(self, run_id: int, status: str, report_path: Path | None) -> dict:
+        now = dt.datetime(2026, 5, 1, 12, 0, 0, tzinfo=dt.UTC).isoformat()
+        return {
+            "run_id": run_id,
+            "overrides": {},
+            "status": status,
+            "output_paths": {"report__FinalState": str(report_path)} if report_path else {},
+            "started_at": now,
+            "ended_at": now,
+            "duration_s": 1.0,
+            "stderr": None,
+            "log_path": None,
+        }
+
+    def _write_manifest(self, path: Path, entries: list[dict]) -> None:
+        header = {
+            "schema_version": 1,
+            "script_sha256": "0" * 64,
+            "gmat_sweep_version": "t",
+            "gmat_run_version": "t",
+            "gmat_install_version": "t",
+            "python_version": "3.12",
+            "os_platform": "t",
+            "sweep_seed": None,
+            "parameter_spec": {"_kind": "explicit", "columns": [], "rows": []},
+            "run_count": len(entries),
+            "backend": "t",
+        }
+        lines = [json.dumps(header, sort_keys=True)]
+        lines.extend(json.dumps(e, sort_keys=True) for e in entries)
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    def test_existing_parquet_is_not_rewritten(self, tmp_path) -> None:
+        # An ok manifest entry whose run_<id>.parquet already exists must
+        # not be re-postprocessed, even when its _Preprocessed is in the
+        # batch (e.g. preprocessing ran defensively over all corpus rows).
+        out_path = tmp_path / "run_42.parquet"
+        sentinel = b"already postprocessed"
+        out_path.write_bytes(sentinel)
+
+        report_path = tmp_path / "report__FinalState.parquet"
+        report_path.write_bytes(b"")  # presence only; never read
+
+        manifest_path = tmp_path / "manifest.jsonl"
+        self._write_manifest(manifest_path, [self._entry(42, "ok", report_path)])
+
+        pre = _Preprocessed(
+            run_id=42,
+            norad_id=44713,
+            target_dt_sec=86_400,
+            epoch_i=pd.Timestamp("2026-04-01T00:00:00Z"),
+            epoch_j=pd.Timestamp("2026-04-02T00:00:00Z"),
+            actual_dt_sec=86_400.0,
+            alt_shell="550",
+            r_init_mj_km=np.array([6800.0, 0.0, 0.0]),
+            v_init_mj_km_s=np.array([0.0, 7.5, 0.0]),
+            r_sgp4_pred_mj_km=np.array([6800.1, 0.0, 0.0]),
+            r_truth_mj_km=np.array([6800.0, 0.0, 0.0]),
+            v_truth_mj_km_s=np.array([0.0, 7.5, 0.0]),
+            dry_mass_kg=248.0,
+            drag_area_m2=5.0,
+            srp_area_m2=5.0,
+            f107_obs=141.9,
+            ap_daily=8.0,
+        )
+
+        ok, failed = _postprocess_all([pre], manifest_path, tmp_path)
+        assert ok == 1 and failed == 0
+        # The sentinel bytes are intact — postprocess did not rewrite.
+        assert out_path.read_bytes() == sentinel
 
 
 if __name__ == "__main__":  # pragma: no cover

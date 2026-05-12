@@ -50,8 +50,10 @@ make diagnostics        # outputs/_diagnostic_sweep_scatter.png — sanity scatt
 ```
 
 The sweep is pausable: a Ctrl-C, sleep, or reboot leaves a partial
-`sweep/manifest.jsonl`; re-running `make sweep` picks up only the
-missing runs.
+`sweep/manifest.jsonl`; re-running `make sweep` automatically resumes
+and dispatches only the failed/missing runs. To start over from
+scratch (different corpus, or just a clean slate), delete
+`sweep/manifest.jsonl` and the contents of `outputs/` first.
 
 ## Compute requirements
 

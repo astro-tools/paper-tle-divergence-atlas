@@ -359,35 +359,92 @@ def _preprocess_all(
     return out
 
 
+_OVERRIDE_COLUMNS: Final = (
+    "Sat.Epoch",
+    "Sat.X",
+    "Sat.Y",
+    "Sat.Z",
+    "Sat.VX",
+    "Sat.VY",
+    "Sat.VZ",
+    "Sat.DryMass",
+    "Sat.Cd",
+    "Sat.DragArea",
+    "Sat.Cr",
+    "Sat.SRPArea",
+    "elapsed_seconds.Value",
+)
+
+
+def _filter_pairs_needing_postprocess(pairs: pd.DataFrame, output_dir: Path) -> pd.DataFrame:
+    """Drop pairs whose run_<id>.parquet already exists on disk.
+
+    Lets the resume path skip preprocessing for runs that already
+    landed a comparison parquet — preprocessing is otherwise
+    O(40 min) at full corpus size, deterministic, and would re-derive
+    state we already used to write the parquet.
+
+    Index of `pairs` carries the run_id (set via `reset_index(drop=True)`
+    upstream).
+    """
+    needed = [
+        run_id for run_id in pairs.index if not (output_dir / f"run_{run_id}.parquet").exists()
+    ]
+    return pairs.loc[needed]
+
+
+def _resume_compatible(manifest_path: Path, n_corpus_pairs: int) -> bool:
+    """True if an existing manifest matches the current corpus and we should resume.
+
+    Refuses to resume when the manifest's `run_count` differs from the
+    corpus pair count — typically a smoke→sweep transition (8 vs 24,641)
+    or a corpus rebuild between sessions. Caller is expected to clear
+    the manifest in that case.
+    """
+    if not manifest_path.exists():
+        return False
+    manifest = Manifest.load(manifest_path)
+    if manifest.run_count != n_corpus_pairs:
+        raise SystemExit(
+            f"existing manifest at {manifest_path} has run_count={manifest.run_count} "
+            f"but the corpus has {n_corpus_pairs} pair(s). The manifest is from a "
+            f"different sweep configuration. Delete it (`rm {manifest_path}`) to "
+            f"start a fresh sweep, or point --tles at the corpus the manifest came "
+            f"from to resume."
+        )
+    return True
+
+
 def _dispatch_sweep(
     preprocessed: list[_Preprocessed],
     mission: Path,
     output_dir: Path,
     manifest_path: Path,
     workers: int,
+    resume: bool,
 ) -> None:
-    run_specs = [_build_run_spec(p, mission, output_dir) for p in preprocessed]
-    override_columns = (
-        "Sat.Epoch",
-        "Sat.X",
-        "Sat.Y",
-        "Sat.Z",
-        "Sat.VX",
-        "Sat.VY",
-        "Sat.VZ",
-        "Sat.DryMass",
-        "Sat.Cd",
-        "Sat.DragArea",
-        "Sat.Cr",
-        "Sat.SRPArea",
-        "elapsed_seconds.Value",
-    )
-    parameter_spec = {
-        "_kind": "explicit",
-        "columns": list(override_columns),
-        "rows": [[spec.overrides[c] for c in override_columns] for spec in run_specs],
-    }
     with LocalJoblibPool(max_workers=workers) as pool:
+        if resume:
+            # Re-run only failed and missing entries. The manifest's
+            # parameter_spec is the source of truth for the run set; the
+            # preprocessed list isn't passed in here because resume() will
+            # only ever dispatch the failed/missing subset, which is
+            # exactly what `preprocessed` contains given the upstream
+            # filter in `_filter_pairs_needing_postprocess`.
+            Sweep.from_manifest(
+                manifest_path,
+                mission,
+                backend=pool,
+                progress=True,
+            ).resume()
+            return
+
+        run_specs = [_build_run_spec(p, mission, output_dir) for p in preprocessed]
+        parameter_spec = {
+            "_kind": "explicit",
+            "columns": list(_OVERRIDE_COLUMNS),
+            "rows": [[spec.overrides[c] for c in _OVERRIDE_COLUMNS] for spec in run_specs],
+        }
         Sweep(
             runs=run_specs,
             backend=pool,
@@ -410,10 +467,27 @@ def _postprocess_all(
     ok = 0
     failed = 0
     for entry in manifest.entries:
+        if entry.status != "ok":
+            failed += 1
+            continue
+        out_path = output_dir / f"run_{entry.run_id}.parquet"
+        if out_path.exists():
+            # Already postprocessed in a prior batch. The upstream pair
+            # filter normally drops these from `preprocessed`, so this
+            # branch also covers them; counting them as ok preserves the
+            # invariant "ok manifest entries == rows in all_runs.parquet".
+            ok += 1
+            continue
         pre = by_run_id.get(entry.run_id)
         if pre is None:
-            continue  # not from this batch (resumed sweep)
-        if entry.status != "ok":
+            # Ok manifest entry whose pair is neither in this preprocess
+            # batch nor postprocessed yet — only happens if the manifest
+            # was edited out of band. Surface and move on.
+            print(
+                f"  run_id={entry.run_id}: ok in manifest but no preprocess data; "
+                f"skipping postprocess",
+                file=sys.stderr,
+            )
             failed += 1
             continue
         report_path = entry.output_paths.get("report__FinalState")
@@ -424,7 +498,6 @@ def _postprocess_all(
             )
             failed += 1
             continue
-        out_path = output_dir / f"run_{pre.run_id}.parquet"
         _postprocess_run(pre, Path(report_path), out_path)
         ok += 1
     return ok, failed
@@ -454,17 +527,6 @@ def main() -> int:
         file=sys.stderr,
     )
 
-    print("phase 1/3: preprocess", file=sys.stderr)
-    t0 = time.monotonic()
-    preprocessed = _preprocess_all(pairs, sw_lookup)
-    print(
-        f"  preprocessed {len(preprocessed)}/{len(pairs)} pair(s) in {time.monotonic() - t0:.1f} s",
-        file=sys.stderr,
-    )
-    if not preprocessed:
-        print("no pairs survived preprocessing; aborting", file=sys.stderr)
-        return 1
-
     # GMAT resolves a relative working_dir against its installed OUTPUT_PATH
     # (e.g. /home/.../gmat-R2026a/output/), producing paths like
     # /home/.../gmat-R2026a/output/outputs/run_0/. Absolutise so per-run
@@ -476,8 +538,43 @@ def main() -> int:
     args.output_dir.mkdir(parents=True, exist_ok=True)
     args.manifest.parent.mkdir(parents=True, exist_ok=True)
 
+    # Resume if an existing manifest matches the current corpus; otherwise
+    # fresh dispatch. The fresh path always re-runs from scratch; resume
+    # delegates to `Sweep.from_manifest(...).resume()` which re-dispatches
+    # only the failed and missing entries.
+    resume = _resume_compatible(args.manifest, len(pairs))
+    if resume:
+        print(f"existing manifest at {args.manifest}; resuming sweep", file=sys.stderr)
+
+    # Preprocess only pairs that don't already have a comparison parquet
+    # on disk — preprocessing is deterministic and re-runs cleanly, but
+    # it costs O(40 min) at full corpus size, all of it wasted for pairs
+    # whose result we already saved.
+    pairs_to_process = _filter_pairs_needing_postprocess(pairs, args.output_dir)
+    if len(pairs_to_process) < len(pairs):
+        n_already = len(pairs) - len(pairs_to_process)
+        print(
+            f"skipping {n_already} pair(s) with existing run_<id>.parquet",
+            file=sys.stderr,
+        )
+
+    print("phase 1/3: preprocess", file=sys.stderr)
+    t0 = time.monotonic()
+    preprocessed = _preprocess_all(pairs_to_process, sw_lookup)
     print(
-        f"phase 2/3: GMAT sweep ({len(preprocessed)} runs, {args.workers} workers)",
+        f"  preprocessed {len(preprocessed)}/{len(pairs_to_process)} pair(s) in {time.monotonic() - t0:.1f} s",
+        file=sys.stderr,
+    )
+    if not preprocessed and not resume:
+        # On a fresh run an empty preprocess set means a broken corpus.
+        # On a resume it can legitimately mean "everything is already
+        # done"; we still call into the resume path so any leftover
+        # failed entries get retried.
+        print("no pairs survived preprocessing; aborting", file=sys.stderr)
+        return 1
+
+    print(
+        f"phase 2/3: GMAT sweep ({len(preprocessed)} runs to dispatch, {args.workers} workers)",
         file=sys.stderr,
     )
     t0 = time.monotonic()
@@ -487,6 +584,7 @@ def main() -> int:
         args.output_dir,
         args.manifest,
         args.workers,
+        resume=resume,
     )
     print(f"  sweep finished in {time.monotonic() - t0:.1f} s", file=sys.stderr)
 
