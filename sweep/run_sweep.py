@@ -59,7 +59,6 @@ from sweep.spacecraft_props import CD, CR
 DEFAULT_SMOKE_N: Final = 8  # split evenly across the Δt buckets
 DEFAULT_SMOKE_SEED: Final = 42
 DEFAULT_WORKERS: Final = 8
-DEFAULT_SW_CACHE: Final = Path("src/data/sw_cache.parquet")
 
 # --- TEME → MJ2000Eq rotation (Vallado IAU 1976/1980, via erfa) -----------
 
@@ -338,9 +337,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--sw-cache",
         type=Path,
-        default=DEFAULT_SW_CACHE,
-        help=f"Path to space-weather cache parquet (default {DEFAULT_SW_CACHE}); "
-        "build with `make fetch-sw`",
+        required=True,
+        help="Path to space-weather cache parquet (built by `make fetch-sw`)",
     )
     return parser.parse_args()
 

@@ -52,6 +52,7 @@ smoke:
 	    --workers 4 \
 	    --mission sweep/mission.script \
 	    --tles src/data/tles_cache.parquet \
+	    --sw-cache src/data/sw_cache.parquet \
 	    --output-dir outputs/ \
 	    --manifest sweep/manifest.jsonl
 
@@ -59,6 +60,7 @@ sweep:
 	python -m sweep.run_sweep \
 	    --mission sweep/mission.script \
 	    --tles src/data/tles_cache.parquet \
+	    --sw-cache src/data/sw_cache.parquet \
 	    --output-dir outputs/ \
 	    --manifest sweep/manifest.jsonl
 
