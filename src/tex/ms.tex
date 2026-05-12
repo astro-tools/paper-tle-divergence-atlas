@@ -61,6 +61,28 @@ and COMSPOC public statements.]
 [TODO: CelesTrak archive, sat sampling, pair construction, maneuver filter,
 GMAT force-model specification, error metrics.]
 
+\subsection{Spacecraft properties}
+\label{sec:methods-spacecraft-props}
+
+Per-satellite dry mass is taken from McDowell's General Catalog of
+Artificial Space Objects \citep{mcdowell2020}, which resolves at the
+launch-batch level across the Starlink generations in our corpus.
+Generation (v1.0 / v1.5 / v2-mini) is classified from the same catalog's
+\texttt{PLName} field.
+
+Attitude-averaged effective drag cross-sections are anchored to
+\citet{baruah2024}, whose analysis of the February 2022 Starlink loss
+event uses ram areas of 1.00\,m$^2$ (collision-avoidance "open book"
+attitude) and 4.48\,m$^2$ (operational "shark fin" attitude) at $C_D = 1$
+for the v1.5 (Group 4) satellites involved. We adopt the shark-fin value
+since station-keeping dominates the duty cycle, rescaled to our
+$C_D = 2.2$ convention so $C_D \cdot A$ matches: 2.0\,m$^2$ for v1.x.
+For v2-mini, where no equivalent ballistic-coefficient analysis has been
+published, we scale by the bus-size ratio reported in
+\citet{krebs_starlink_v2mini}, yielding 4.5\,m$^2$ at $C_D = 2.2$; this
+is the largest remaining modelling assumption in the spacecraft-properties
+layer and is revisited in Section~\ref{sec:discussion}.
+
 \section{Results}
 \label{sec:results}
 

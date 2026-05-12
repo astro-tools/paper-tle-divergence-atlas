@@ -1,8 +1,9 @@
 """Unit tests for sweep.spacecraft_props.
 
 No network — `fetch_gcat_satcat` is exercised only by the manual
-`make fetch-satcat` step. Parsing and the per-corpus attach are
-verified against a synthetic GCAT-format tsv built per-test.
+`make fetch-satcat` step. Parsing, generation classification, and the
+per-corpus attach are verified against a synthetic GCAT-format tsv
+built per-test.
 """
 
 from __future__ import annotations
@@ -13,20 +14,20 @@ import pandas as pd
 import pytest
 
 from sweep.spacecraft_props import (
-    AREA_LARGE_M2,
-    AREA_SMALL_M2,
-    SPAN_BUCKET_BOUNDARY_M,
+    DRAG_AREA_M2,
+    SRP_AREA_M2,
+    Generation,
     attach_spacecraft_props,
-    drag_area_from_span,
+    generation_from_pl_name,
     parse_gcat_satcat,
 )
 
 # A small slice of GCAT satcat.tsv in the real on-disk format — first line is
 # the tab-separated header prefixed with "#", subsequent "#" lines are
-# comments, then a few data rows covering v1.0 (Span 9), v1.5 (Span 9),
-# v2-mini (Span 29), plus one row with a blank Span column so the parser's
-# NaN handling is exercised. The full GCAT header has dozens of columns; we
-# include only the subset our parser actually reads.
+# comments, then a few data rows covering each generation cohort plus one
+# row with a blank Span / DryMass column so the parser's NaN handling is
+# exercised. The full GCAT header has dozens of columns; we include only
+# the subset our parser actually reads.
 GCAT_TSV_TEMPLATE = (
     "#JCAT\tSatcat\tLaunch_Tag\tPiece\tType\tName\tPLName\tLDate\tDryMass\tDryFlag\tSpan\tSpanFlag\n"
     "# Updated 2026 May 11 0953:03\n"
@@ -38,19 +39,61 @@ GCAT_TSV_TEMPLATE = (
 )
 
 
-class TestDragAreaFromSpan:
-    def test_small_span_uses_small_area(self) -> None:
-        assert drag_area_from_span(9.0) == AREA_SMALL_M2
+class TestGenerationFromPlName:
+    def test_v0_9_maps_to_v1_0_bucket(self) -> None:
+        assert generation_from_pl_name("Starlink V0.9-01") == Generation.V1_0
 
-    def test_large_span_uses_large_area(self) -> None:
-        assert drag_area_from_span(29.0) == AREA_LARGE_M2
+    def test_v1_0_launch_pattern(self) -> None:
+        assert generation_from_pl_name("Starlink V1.0-L20-03") == Generation.V1_0
 
-    def test_boundary_is_inclusive_low(self) -> None:
-        # 15 m exactly belongs to the small-span (v1.x) bucket.
-        assert drag_area_from_span(SPAN_BUCKET_BOUNDARY_M) == AREA_SMALL_M2
+    def test_tsp_variant_is_v1_0_bucket(self) -> None:
+        assert generation_from_pl_name("Starlink TSP2-03") == Generation.V1_0
 
-    def test_just_above_boundary_uses_large_area(self) -> None:
-        assert drag_area_from_span(SPAN_BUCKET_BOUNDARY_M + 0.01) == AREA_LARGE_M2
+    def test_group_2_5_are_v1_5(self) -> None:
+        assert generation_from_pl_name("Starlink Group 2-1-15") == Generation.V1_5
+        assert generation_from_pl_name("Starlink Group 3-2-7") == Generation.V1_5
+        assert generation_from_pl_name("Starlink Group 4-1-3") == Generation.V1_5
+        assert generation_from_pl_name("Starlink Group 5-2") == Generation.V1_5
+
+    def test_group_6_plus_are_v2_mini(self) -> None:
+        assert generation_from_pl_name("Starlink Group 6-13") == Generation.V2_MINI
+        assert generation_from_pl_name("Starlink Group 13-4") == Generation.V2_MINI
+        assert generation_from_pl_name("Starlink Group 15-1-22") == Generation.V2_MINI
+        assert generation_from_pl_name("Starlink Group 17-6") == Generation.V2_MINI
+
+    def test_handles_whitespace(self) -> None:
+        assert generation_from_pl_name("  Starlink   Group 4-1-3  ") == Generation.V1_5
+
+    def test_raises_on_non_starlink(self) -> None:
+        with pytest.raises(ValueError, match="unrecognized"):
+            generation_from_pl_name("OneWeb 0001")
+
+    def test_raises_on_unparseable_starlink(self) -> None:
+        with pytest.raises(ValueError, match="unrecognized"):
+            generation_from_pl_name("Starlink Mystery-X")
+
+
+class TestPerGenerationTables:
+    def test_drag_area_covers_every_generation(self) -> None:
+        for gen in Generation:
+            assert gen in DRAG_AREA_M2
+            assert DRAG_AREA_M2[gen] > 0
+
+    def test_srp_area_covers_every_generation(self) -> None:
+        for gen in Generation:
+            assert gen in SRP_AREA_M2
+            assert SRP_AREA_M2[gen] > 0
+
+    def test_v2_mini_drag_area_larger_than_v1_x(self) -> None:
+        # Physical sanity: v2-mini bus is structurally bigger than v1.0/v1.5.
+        assert DRAG_AREA_M2[Generation.V2_MINI] > DRAG_AREA_M2[Generation.V1_5]
+        assert DRAG_AREA_M2[Generation.V2_MINI] > DRAG_AREA_M2[Generation.V1_0]
+
+    def test_srp_area_at_least_drag_area(self) -> None:
+        # SRP integrates over panel surface; drag is the much-smaller ram-direction
+        # cross-section in nominal attitude. Drag area should never exceed SRP area.
+        for gen in Generation:
+            assert SRP_AREA_M2[gen] >= DRAG_AREA_M2[gen]
 
 
 class TestParseGcatSatcat:
@@ -86,18 +129,23 @@ class TestAttachSpacecraftProps:
     def _satcat(self) -> pd.DataFrame:
         return pd.DataFrame(
             [
-                {"satcat_id": 1, "dry_mass_kg": 248.0, "span_m": 9.0, "pl_name": "Starlink V1.0"},
+                {
+                    "satcat_id": 1,
+                    "dry_mass_kg": 248.0,
+                    "span_m": 9.0,
+                    "pl_name": "Starlink V1.0-L20-03",
+                },
                 {
                     "satcat_id": 2,
-                    "dry_mass_kg": 305.0,
+                    "dry_mass_kg": 290.0,
                     "span_m": 9.0,
-                    "pl_name": "Starlink Group 4-1",
+                    "pl_name": "Starlink Group 4-1-3",
                 },
                 {
                     "satcat_id": 3,
-                    "dry_mass_kg": 700.0,
+                    "dry_mass_kg": 530.0,
                     "span_m": 29.0,
-                    "pl_name": "Starlink Group 15-1",
+                    "pl_name": "Starlink Group 15-1-22",
                 },
             ],
         )
@@ -110,19 +158,27 @@ class TestAttachSpacecraftProps:
                 rows.append({"norad_id": nid, "target_dt_sec": dt, "alt_shell": "550"})
         return pd.DataFrame(rows)
 
-    def test_joins_per_sat_props_to_every_pair(self) -> None:
+    def test_dry_mass_per_sat_drag_and_srp_per_generation(self) -> None:
         corpus = self._corpus([1, 2, 3])
         out = attach_spacecraft_props(corpus, self._satcat())
-        assert len(out) == len(corpus)  # no row explosion
-        # v1.0 sat (NORAD 1): mass 248, span 9 → drag area 5.0.
-        v10 = out[out["norad_id"] == 1].iloc[0]
-        assert v10["dry_mass_kg"] == 248.0
-        assert v10["drag_area_m2"] == AREA_SMALL_M2
-        assert v10["srp_area_m2"] == AREA_SMALL_M2
-        # v2-mini sat (NORAD 3): mass 700, span 29 → drag area 3.5.
-        v2 = out[out["norad_id"] == 3].iloc[0]
-        assert v2["dry_mass_kg"] == 700.0
-        assert v2["drag_area_m2"] == AREA_LARGE_M2
+        assert len(out) == len(corpus)  # many-to-one merge, no row explosion
+
+        v1_0 = out[out["norad_id"] == 1].iloc[0]
+        assert v1_0["dry_mass_kg"] == 248.0
+        assert v1_0["generation"] == Generation.V1_0.value
+        assert v1_0["drag_area_m2"] == DRAG_AREA_M2[Generation.V1_0]
+        assert v1_0["srp_area_m2"] == SRP_AREA_M2[Generation.V1_0]
+
+        v1_5 = out[out["norad_id"] == 2].iloc[0]
+        assert v1_5["dry_mass_kg"] == 290.0
+        assert v1_5["generation"] == Generation.V1_5.value
+        assert v1_5["drag_area_m2"] == DRAG_AREA_M2[Generation.V1_5]
+
+        v2_mini = out[out["norad_id"] == 3].iloc[0]
+        assert v2_mini["dry_mass_kg"] == 530.0
+        assert v2_mini["generation"] == Generation.V2_MINI.value
+        assert v2_mini["drag_area_m2"] == DRAG_AREA_M2[Generation.V2_MINI]
+        assert v2_mini["srp_area_m2"] == SRP_AREA_M2[Generation.V2_MINI]
 
     def test_preserves_existing_corpus_columns(self) -> None:
         corpus = self._corpus([1])
@@ -132,17 +188,23 @@ class TestAttachSpacecraftProps:
 
     def test_pl_name_passes_through(self) -> None:
         out = attach_spacecraft_props(self._corpus([2]), self._satcat())
-        assert (out["gcat_pl_name"] == "Starlink Group 4-1").all()
+        assert (out["gcat_pl_name"] == "Starlink Group 4-1-3").all()
 
     def test_raises_when_corpus_sat_missing_from_satcat(self) -> None:
         corpus = self._corpus([1, 99])
         with pytest.raises(KeyError, match="missing 1 NORAD IDs"):
             attach_spacecraft_props(corpus, self._satcat())
 
-    def test_raises_on_nan_mass_or_span(self) -> None:
+    def test_raises_on_nan_dry_mass(self) -> None:
         satcat = self._satcat()
         satcat.loc[satcat["satcat_id"] == 2, "dry_mass_kg"] = float("nan")
-        with pytest.raises(ValueError, match="missing mass/span"):
+        with pytest.raises(ValueError, match="missing dry mass"):
+            attach_spacecraft_props(self._corpus([2]), satcat)
+
+    def test_raises_on_unclassifiable_pl_name(self) -> None:
+        satcat = self._satcat()
+        satcat.loc[satcat["satcat_id"] == 2, "pl_name"] = "Starlink Mystery"
+        with pytest.raises(ValueError, match="unrecognized"):
             attach_spacecraft_props(self._corpus([2]), satcat)
 
     def test_requires_norad_id_column(self) -> None:
