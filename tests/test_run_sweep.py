@@ -276,6 +276,16 @@ class TestBuildRunSpec:
         assert spec.output_dir == Path("outputs/run_7")
         assert spec.run_id == 7
 
+    def test_run_options_set_overwrite_true(self) -> None:
+        # mission.run(overwrite=True) lets resumed/retried runs clear
+        # stale partial outputs left by a Ctrl-C'd worker. Without it,
+        # every retry of an interrupted run_id fails with "working_dir
+        # already contains output files".
+        from pathlib import Path
+
+        spec = _build_run_spec(self._pre(), Path("m.script"), Path("outputs"))
+        assert spec.run_options == {"overwrite": True}
+
     def test_override_values_are_json_safe(self) -> None:
         from pathlib import Path
 

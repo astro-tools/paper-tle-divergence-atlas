@@ -243,7 +243,16 @@ def _build_run_spec(pre: _Preprocessed, mission_path: Path, output_root: Path) -
         output_dir=output_root / f"run_{pre.run_id}",
         run_id=pre.run_id,
         seed=None,
-        run_options={},
+        # `overwrite=True` clears partial outputs from interrupted workers.
+        # gmat_run.Mission.run refuses non-empty working_dirs by default —
+        # a Ctrl-C mid-flight leaves a `worker.log` + maybe a partial
+        # `final_state.txt`, which would then fail every retry of that
+        # run_id with "already contains output files". For our sweep,
+        # `outputs/run_<id>/` is only populated when we intend to
+        # (re-)dispatch — `_filter_pairs_needing_postprocess` skips pairs
+        # whose `run_<id>.parquet` is already on disk, so we never
+        # accidentally overwrite a finished postprocess result.
+        run_options={"overwrite": True},
     )
 
 
