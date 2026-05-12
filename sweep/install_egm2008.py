@@ -58,7 +58,7 @@ EGM2008_RE: Final = 6.378136300e6  # m
 # Local cache for the downloaded NGA source file. Not committed; the
 # checksum-pinned re-emission below means stale caches are detected
 # automatically.
-DEFAULT_CACHE_DIR: Final = Path.home() / ".cache" / "paper-tle-divergence-atlas" / "egm2008"
+DEFAULT_CACHE_DIR: Final = Path.home() / ".cache" / "egm2008"
 
 # Truncation default: matches the paper's `FM.GravityField.Earth.Degree`
 # in `sweep/mission.script`. Bigger files are wasted disk; smaller files
