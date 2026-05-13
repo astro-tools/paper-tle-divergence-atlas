@@ -1,4 +1,4 @@
-.PHONY: help env fetch-tles fetch-satcat fetch-sw install-egm2008 build-corpus build smoke sweep aggregate sweep-stats diagnostics figures clean
+.PHONY: help env fetch-tles fetch-satcat fetch-sw install-egm2008 build-corpus build-maneuver-jumps build smoke sweep aggregate sweep-stats diagnostics figures clean
 
 help:
 	@echo "Targets:"
@@ -14,6 +14,8 @@ help:
 	@echo "                     (idempotent; safe to re-run)."
 	@echo "  build-corpus -- pairs + maneuver filter + stratified sample + GCAT props →"
 	@echo "                  src/static/tles_cache.parquet"
+	@echo "  build-maneuver-jumps -- per-consecutive-pair |Δa| from the raw cache →"
+	@echo "                          src/static/maneuver_jumps.parquet (F8 input)."
 	@echo "  build        -- render PDF via showyourwork (uses Zenodo-cached outputs)"
 	@echo "  smoke        -- run an N=8 sweep against the cached corpus (requires GMAT)"
 	@echo "  sweep        -- run the gmat-sweep locally (requires GMAT; ~10 h on 8 cores)"
@@ -53,6 +55,11 @@ build-corpus: src/static/sw_cache.parquet
 	    --raw src/data/tles_raw.parquet \
 	    --satcat src/data/gcat_satcat.tsv \
 	    --out src/static/tles_cache.parquet
+
+build-maneuver-jumps:
+	python -m sweep.tle_pipeline maneuver-jumps \
+	    --raw src/data/tles_raw.parquet \
+	    --out src/static/maneuver_jumps.parquet
 
 build:
 	showyourwork build

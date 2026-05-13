@@ -40,4 +40,4 @@ dependencies:
   src/scripts/fig_solar_modulation.py:
     - outputs/all_runs.parquet
   src/scripts/fig_maneuver_filter.py:
-    - src/data/tles_raw.parquet
+    - src/static/maneuver_jumps.parquet

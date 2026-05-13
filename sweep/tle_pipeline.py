@@ -189,6 +189,19 @@ def _mean_motion_from_line2(line2: str) -> float:
     return float(line2[52:63])
 
 
+def consecutive_sma_jumps(tles: pd.DataFrame) -> np.ndarray:
+    """``|Δa|`` (km) between every pair of consecutive TLEs, per satellite.
+
+    Returns a 1-D array; ordering across sats is unspecified (the F8
+    appendix only consumes the marginal histogram). NaNs from the
+    per-sat `.diff()` boundary rows are dropped.
+    """
+    sorted_tles = tles.sort_values(["norad_id", "epoch"]).reset_index(drop=True)
+    sma = sorted_tles["line2"].map(lambda x: sma_km_from_mean_motion(_mean_motion_from_line2(x)))
+    diffs = sma.groupby(sorted_tles["norad_id"]).diff().abs().dropna()
+    return diffs.to_numpy()
+
+
 def detect_maneuver_epochs(
     tles: pd.DataFrame,
     *,
@@ -427,6 +440,13 @@ def _cli() -> int:
         "span_m / drag_area_m2 / srp_area_m2 / gcat_pl_name columns.",
     )
 
+    pj = sub.add_parser(
+        "maneuver-jumps",
+        help="Compute per-consecutive-pair |Δa| from the raw cache → static parquet for F8.",
+    )
+    pj.add_argument("--raw", type=Path, default=Path("src/data/tles_raw.parquet"))
+    pj.add_argument("--out", type=Path, default=Path("src/static/maneuver_jumps.parquet"))
+
     args = parser.parse_args()
 
     if args.cmd == "fetch":
@@ -453,6 +473,20 @@ def _cli() -> int:
         print(
             f"built corpus: {len(corpus)} pairs across "
             f"{corpus['norad_id'].nunique()} sats → {args.out}",
+            file=sys.stderr,
+        )
+        return 0
+
+    if args.cmd == "maneuver-jumps":
+        raw = pd.read_parquet(args.raw)
+        jumps = consecutive_sma_jumps(raw).astype(np.float32)
+        out_df = pd.DataFrame({"abs_da_km": jumps})
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        # float32 + gzip: a histogram-only artifact doesn't need float64
+        # and the committed parquet wants to stay under a few MB.
+        out_df.to_parquet(args.out, compression="gzip", index=False)
+        print(
+            f"computed {len(jumps):,} consecutive |Δa| values → {args.out}",
             file=sys.stderr,
         )
         return 0

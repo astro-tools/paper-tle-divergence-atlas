@@ -1,17 +1,19 @@
 """Figure F8 (appendix): SMA-jump histogram with the maneuver-filter threshold.
 
 The Starlink ion-drive maneuver signature is a discontinuity in mean motion
-between consecutive TLEs. Plot the distribution of |Δa| across all pairs of
-consecutive TLEs in the raw cache; the threshold separating quiet pairs from
-maneuvering pairs should sit cleanly between two modes of the histogram.
+between consecutive TLEs. Plot the distribution of ``|Δa|`` across all pairs
+of consecutive TLEs in the raw cache; the threshold separating quiet pairs
+from maneuvering pairs should sit cleanly between two modes of the histogram.
 
-This figure is not wired into ms.tex until Day 6 (issue #5). Day 2 commits
-the script so the calibration of the 100-m default threshold is reviewable
-alongside the pipeline.
+Reads a committed `src/static/maneuver_jumps.parquet` (one column,
+``abs_da_km``) so CI can build the figure without the gitignored
+``src/data/tles_raw.parquet`` (~100 MB). Regenerate the static parquet
+with ``python -m sweep.tle_pipeline maneuver-jumps`` whenever the raw
+cache changes.
 
 Usage:
     python src/scripts/fig_maneuver_filter.py \\
-        --raw src/data/tles_raw.parquet \\
+        --jumps src/static/maneuver_jumps.parquet \\
         --out src/tex/figures/fig_maneuver_filter.pdf
 """
 
@@ -24,24 +26,21 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from sweep.tle_pipeline import (
-    DEFAULT_MANEUVER_THRESHOLD_KM,
-    _mean_motion_from_line2,
-    sma_km_from_mean_motion,
-)
-
-
-def _consecutive_sma_jumps(tles: pd.DataFrame) -> np.ndarray:
-    """|Δa| in km between every pair of consecutive TLEs (per sat)."""
-    tles = tles.sort_values(["norad_id", "epoch"]).reset_index(drop=True)
-    sma = tles["line2"].map(lambda x: sma_km_from_mean_motion(_mean_motion_from_line2(x)))
-    diffs = sma.groupby(tles["norad_id"]).diff().abs().dropna()
-    return diffs.to_numpy()
+# Mirrors `sweep.tle_pipeline.DEFAULT_MANEUVER_THRESHOLD_KM`. Inlined so
+# the figure script doesn't need the `sweep` namespace package on its
+# import path — showyourwork runs figure scripts as bare `python <script>`
+# from the repo root, which doesn't add the repo root to sys.path.
+DEFAULT_MANEUVER_THRESHOLD_KM = 0.1
 
 
 def _cli() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--raw", type=Path, default=Path("src/data/tles_raw.parquet"))
+    parser.add_argument(
+        "--jumps",
+        type=Path,
+        default=Path("src/static/maneuver_jumps.parquet"),
+        help="Static parquet of |Δa| values produced by `tle_pipeline maneuver-jumps`.",
+    )
     parser.add_argument(
         "--out",
         type=Path,
@@ -55,8 +54,7 @@ def _cli() -> int:
     )
     args = parser.parse_args()
 
-    raw = pd.read_parquet(args.raw)
-    jumps = _consecutive_sma_jumps(raw)
+    jumps = pd.read_parquet(args.jumps)["abs_da_km"].to_numpy()
 
     # Floor zeros so log binning works; covers ~0.1 m to ~100 km.
     jumps_nz = np.maximum(jumps, 1e-4)
