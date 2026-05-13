@@ -11,9 +11,16 @@ verbose: false
 require_inputs: true
 
 # Zenodo datasets fetched on build.
-# Populate after first Zenodo deposit; see plan in
-#   files/research/paper-1-tle-divergence-atlas-plan.md
-datasets: {}
+#
+# The current entry points at a Zenodo Sandbox deposit holding the Day-4
+# aggregated sweep output. This is a *dev* deposit — Zenodo Sandbox is
+# not long-term storage and may be cleaned periodically. The v0.1.0
+# production deposit on real Zenodo (10.5281/zenodo.<id>) will replace
+# this key on the release-cut PR.
+datasets:
+  10.5072/zenodo.498959:
+    contents:
+      all_runs.parquet: outputs/all_runs.parquet
 
 # Per-script dependencies. Add entries as figures land.
 dependencies:
