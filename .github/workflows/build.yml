@@ -31,6 +31,12 @@ jobs:
           # Match environment.yml: pull showyourwork from git@main, not PyPI
           # (PyPI v0.4.3 is incompatible with Python 3.11+).
           showyourwork-spec: "git+https://github.com/showyourwork/showyourwork@main"
+          # The latexdiff PR-diff PDF feature `apt-get install`s texlive-base,
+          # which drags in ~4–5 min of texlive-binaries / dvisvgm / ghostscript
+          # / fonts on every PR build. The main compile already uses tectonic
+          # via showyourwork's bundled conda env, so this is the only apt cost
+          # in CI. We don't use the diff.pdf artifact; skip it.
+          build-diff-on-pull-request: "false"
 
       - name: Upload PDF
         uses: actions/upload-artifact@v4
