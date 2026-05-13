@@ -12,13 +12,14 @@ require_inputs: true
 
 # Zenodo datasets fetched on build.
 #
-# The current entry points at a Zenodo Sandbox deposit holding the Day-4
-# aggregated sweep output. This is a *dev* deposit — Zenodo Sandbox is
-# not long-term storage and may be cleaned periodically. The v0.1.0
-# production deposit on real Zenodo (10.5281/zenodo.<id>) will replace
-# this key on the release-cut PR.
+# Keyed by the *version* DOI (showyourwork rejects concept DOIs at
+# preprocess time so the snapshot is locked). The current entry points
+# at a Zenodo Sandbox deposit holding the Day-4 aggregated sweep
+# output — Sandbox is not long-term storage and may be cleaned
+# periodically; the v0.1.0 release-cut PR swaps this for the real
+# Zenodo DOI.
 datasets:
-  10.5072/zenodo.498959:
+  10.5072/zenodo.498960:
     contents:
       all_runs.parquet: outputs/all_runs.parquet
 
