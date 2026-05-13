@@ -26,7 +26,7 @@ datasets:
 # Per-script dependencies. Add entries as figures land.
 dependencies:
   src/scripts/fig_constellation_map.py:
-    - src/data/tles_cache.parquet
+    - src/static/tles_cache.parquet
   src/scripts/fig_sgp4_growth.py:
     - outputs/all_runs.parquet
   src/scripts/fig_hifi_growth.py:

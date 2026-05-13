@@ -13,7 +13,7 @@ help:
 	@echo "                     file into \$$GMAT_ROOT/data/gravity/earth/EGM2008.cof"
 	@echo "                     (idempotent; safe to re-run)."
 	@echo "  build-corpus -- pairs + maneuver filter + stratified sample + GCAT props →"
-	@echo "                  src/data/tles_cache.parquet"
+	@echo "                  src/static/tles_cache.parquet"
 	@echo "  build        -- render PDF via showyourwork (uses Zenodo-cached outputs)"
 	@echo "  smoke        -- run an N=8 sweep against the cached corpus (requires GMAT)"
 	@echo "  sweep        -- run the gmat-sweep locally (requires GMAT; ~10 h on 8 cores)"
@@ -32,27 +32,27 @@ env:
 
 fetch-tles:
 	python -m sweep.tle_pipeline fetch \
-	    --window src/data/window.json \
+	    --window src/static/window.json \
 	    --out src/data/tles_raw.parquet
 
 fetch-satcat:
 	python -m sweep.spacecraft_props fetch-satcat \
 	    --out src/data/gcat_satcat.tsv
 
-fetch-sw: src/data/sw_cache.parquet
+fetch-sw: src/static/sw_cache.parquet
 
-src/data/sw_cache.parquet:
+src/static/sw_cache.parquet:
 	python -m sweep.space_weather fetch \
 	    --out $@
 
 install-egm2008:
 	python -m sweep.install_egm2008
 
-build-corpus: src/data/sw_cache.parquet
+build-corpus: src/static/sw_cache.parquet
 	python -m sweep.tle_pipeline build \
 	    --raw src/data/tles_raw.parquet \
 	    --satcat src/data/gcat_satcat.tsv \
-	    --out src/data/tles_cache.parquet
+	    --out src/static/tles_cache.parquet
 
 build:
 	showyourwork build
@@ -62,23 +62,23 @@ smoke:
 	    --smoke \
 	    --workers 4 \
 	    --mission sweep/mission.script \
-	    --tles src/data/tles_cache.parquet \
-	    --sw-cache src/data/sw_cache.parquet \
+	    --tles src/static/tles_cache.parquet \
+	    --sw-cache src/static/sw_cache.parquet \
 	    --output-dir outputs/ \
 	    --manifest sweep/manifest.jsonl
 
 sweep:
 	python -m sweep.run_sweep \
 	    --mission sweep/mission.script \
-	    --tles src/data/tles_cache.parquet \
-	    --sw-cache src/data/sw_cache.parquet \
+	    --tles src/static/tles_cache.parquet \
+	    --sw-cache src/static/sw_cache.parquet \
 	    --output-dir outputs/ \
 	    --manifest sweep/manifest.jsonl
 
 aggregate:
 	python -m sweep.aggregate \
 	    --output-dir outputs/ \
-	    --tles src/data/tles_cache.parquet \
+	    --tles src/static/tles_cache.parquet \
 	    --manifest sweep/manifest.jsonl \
 	    --out outputs/all_runs.parquet
 

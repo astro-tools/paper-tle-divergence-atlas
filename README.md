@@ -67,8 +67,8 @@ scratch (different corpus, or just a clean slate), delete
 
 - **Code:** this repository (MIT licensed).
 - **Sweep outputs:** Zenodo concept DOI [TBD before v0.1.0 release].
-- **Input data:** Starlink TLEs from CelesTrak (cached in `src/data/`); solar activity from CelesTrak's space weather file.
-- **Spacecraft properties:** per-NORAD-ID dry mass and structural span are taken from Jonathan McDowell's *General Catalog of Artificial Space Objects* ([GCAT](https://planet4589.org/space/gcat/)), with a snapshot of the relevant subset cached in `src/data/`. Cite McDowell, J. C. 2020, AJ, 159, 5.
+- **Input data:** Starlink TLEs from CelesTrak (cached in `src/static/`); solar activity from CelesTrak's space weather file.
+- **Spacecraft properties:** per-NORAD-ID dry mass and structural span are taken from Jonathan McDowell's *General Catalog of Artificial Space Objects* ([GCAT](https://planet4589.org/space/gcat/)), with a snapshot of the relevant subset cached in `src/static/`. Cite McDowell, J. C. 2020, AJ, 159, 5.
 
 ## Citation
 

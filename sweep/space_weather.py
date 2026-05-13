@@ -44,7 +44,7 @@ import pandas as pd
 SW_URL: Final = "https://celestrak.org/SpaceData/sw19571001.txt"
 
 # Default committed-cache window. The corpus window is April 2026
-# (src/data/window.json); we keep ~9 months on each side so window
+# (src/static/window.json); we keep ~9 months on each side so window
 # extensions or follow-up analyses don't force a re-fetch.
 DEFAULT_WINDOW_START: Final = dt.date(2026, 1, 1)
 DEFAULT_WINDOW_END: Final = dt.date(2027, 1, 1)

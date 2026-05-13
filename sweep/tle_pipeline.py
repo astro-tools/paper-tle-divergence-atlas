@@ -26,7 +26,7 @@ dropped if any maneuver landed inside its (t_i, t_j] interval.
 
 Why a separate fetch step. Space-Track has an API allowance and requires
 credentials; we fetch once locally and commit only the post-sample corpus
-(`src/data/tles_cache.parquet`) so the rest of the work, and anyone
+(`src/static/tles_cache.parquet`) so the rest of the work, and anyone
 reproducing the paper, never needs Space-Track.
 """
 
@@ -410,12 +410,12 @@ def _cli() -> int:
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     pf = sub.add_parser("fetch", help="One-time fetch from Space-Track")
-    pf.add_argument("--window", type=Path, default=Path("src/data/window.json"))
+    pf.add_argument("--window", type=Path, default=Path("src/static/window.json"))
     pf.add_argument("--out", type=Path, default=Path("src/data/tles_raw.parquet"))
 
     pb = sub.add_parser("build", help="maneuver detect + pair + filter + sample → corpus")
     pb.add_argument("--raw", type=Path, default=Path("src/data/tles_raw.parquet"))
-    pb.add_argument("--out", type=Path, default=Path("src/data/tles_cache.parquet"))
+    pb.add_argument("--out", type=Path, default=Path("src/static/tles_cache.parquet"))
     pb.add_argument("--sma-threshold-km", type=float, default=DEFAULT_MANEUVER_THRESHOLD_KM)
     pb.add_argument("--per-shell", type=int, default=DEFAULT_SATS_PER_SHELL)
     pb.add_argument("--seed", type=int, default=DEFAULT_SEED)

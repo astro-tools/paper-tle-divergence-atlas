@@ -13,7 +13,7 @@ currently only carries the SMA derivative.
 
 Usage:
     python src/scripts/fig_constellation_map.py \\
-        --corpus src/data/tles_cache.parquet \\
+        --corpus src/static/tles_cache.parquet \\
         --out src/tex/figures/fig_constellation_map.pdf
 """
 
@@ -179,7 +179,7 @@ def _cli() -> int:
     parser.add_argument(
         "--corpus",
         type=Path,
-        default=Path("src/data/tles_cache.parquet"),
+        default=Path("src/static/tles_cache.parquet"),
         help="Path to the sampled corpus parquet (built by sweep.tle_pipeline build).",
     )
     parser.add_argument(
