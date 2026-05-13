@@ -97,7 +97,5 @@ figures:
 	snakemake --cores 1 src/tex/figures
 
 clean:
-	rm -rf .snakemake .showyourwork src/tex/figures src/tex/ms.pdf
-	rm -f src/tex/ms.aux src/tex/ms.log src/tex/ms.out
-	rm -f src/tex/ms.bbl src/tex/ms.blg src/tex/ms.synctex.gz
-	rm -f src/tex/ms.fdb_latexmk src/tex/ms.fls src/tex/ms.toc
+	rm -rf .snakemake .showyourwork src/tex/figures ms.pdf
+	rm -f ms.aux ms.log ms.out ms.bbl ms.blg ms.synctex.gz ms.fdb_latexmk ms.fls ms.toc
