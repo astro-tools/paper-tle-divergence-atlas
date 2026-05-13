@@ -33,3 +33,11 @@ dependencies:
     - outputs/all_runs.parquet
   src/scripts/fig_propagator_scatter.py:
     - outputs/all_runs.parquet
+  src/scripts/fig_powerlaw_fits.py:
+    - outputs/all_runs.parquet
+  src/scripts/fig_error_decomposition.py:
+    - outputs/all_runs.parquet
+  src/scripts/fig_solar_modulation.py:
+    - outputs/all_runs.parquet
+  src/scripts/fig_maneuver_filter.py:
+    - src/static/maneuver_jumps.parquet
