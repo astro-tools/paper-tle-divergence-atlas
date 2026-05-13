@@ -135,6 +135,53 @@ Captions below are placeholders pending final Results lock.]
   \script{fig_propagator_scatter.py}
 \end{figure}
 
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\linewidth]{figures/fig_powerlaw_fits.pdf}
+  \caption{Power-law fits $\|\Delta\mathbf{r}\| \approx A \cdot \Delta t^{k}$
+  per (altitude shell $\times$ pooled generation) cell. Bars show the
+  point estimate; vertical lines give 95\% bootstrap CIs from 1000
+  resamples at the satellite level. Left subpanel per row: coefficient
+  $A$ on a log axis; right subpanel: exponent $k$ with $k = 1$ marked.
+  Numerical values are listed in Table~\ref{tab:powerlaw}.}
+  \label{fig:powerlaw-fits}
+  \script{fig_powerlaw_fits.py}
+\end{figure}
+
+\begin{table}[ht]
+  \centering
+  \caption{Power-law fit parameters per (altitude shell $\times$ pooled
+  generation), for SGP4 and high-fidelity propagators. Values are point
+  estimate followed by 95\% bootstrap CI.}
+  \label{tab:powerlaw}
+  \input{tables/tab_powerlaw.tex}
+\end{table}
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\linewidth]{figures/fig_error_decomposition.pdf}
+  \caption{Error decomposition into along-track, cross-track, and radial
+  components of $\Delta\mathbf{r}$ in the truth state's RSW frame.
+  Per-bucket medians with IQR ribbons; solid lines are SGP4, dashed
+  lines are high-fidelity; color encodes pooled generation. Confirms
+  the along-track-dominant character of long-$\Delta t$ error.}
+  \label{fig:error-decomposition}
+  \script{fig_error_decomposition.py}
+\end{figure}
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\linewidth]{figures/fig_solar_modulation.pdf}
+  \caption{Per-satellite SGP4 staleness coefficient $A$ vs.\ the mean
+  solar F10.7 flux over the satellite's corpus time window, restricted
+  to the drag-dominated sub-550\,km shell. Markers colored by pooled
+  generation; thick lines are per-generation rolling medians.
+  Addresses H3: error growth under drag-driven conditions should track
+  solar EUV proxy.}
+  \label{fig:solar-modulation}
+  \script{fig_solar_modulation.py}
+\end{figure}
+
 \section{Discussion}
 \label{sec:discussion}
 
@@ -146,6 +193,30 @@ limitations.]
 \label{sec:conclusion}
 
 [TODO.]
+
+\appendix
+
+\section{Maneuver filter calibration}
+\label{app:maneuver-filter}
+
+The pair-construction pipeline drops consecutive TLE pairs whose
+mean-motion derived semi-major-axis difference $|\Delta a|$ exceeds a
+fixed threshold, on the grounds that such jumps mark station-keeping
+burns and so violate the no-maneuver assumption behind the truth
+construction. Figure~\ref{fig:maneuver-filter} shows the
+$|\Delta a|$ distribution across all consecutive pairs in the raw
+cache, with the 100\,m threshold marked.
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\linewidth]{figures/fig_maneuver_filter.pdf}
+  \caption{Distribution of $|\Delta a|$ between consecutive Starlink
+  TLEs across the raw cache. The dashed line marks the 100\,m maneuver
+  filter threshold; the two modes (quiet vs.\ maneuvering pairs) sit
+  cleanly on either side.}
+  \label{fig:maneuver-filter}
+  \script{fig_maneuver_filter.py}
+\end{figure}
 
 \section*{Data and code availability}
 \label{sec:availability}

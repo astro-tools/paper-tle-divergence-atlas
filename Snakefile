@@ -12,4 +12,25 @@
 # The sweep rule is local-only; CI fetches outputs/ from Zenodo via showyourwork's
 # datasets mechanism configured in showyourwork.yml.
 
-# Currently empty -- the manuscript renders without any custom data pipeline.
+# Custom rule: fig_powerlaw_fits.py emits both the figure PDF and the
+# auto-generated LaTeX table that ms.tex \input{}-s. showyourwork's
+# auto-generated rule for figure scripts only knows about the PDF, so
+# without this rule Snakemake has no producer for `tab_powerlaw.tex`
+# and the LaTeX build fails on a missing \input target. Declaring both
+# outputs in one rule keeps the fit logic single-source: the bootstrap
+# resamples once and both artifacts fall out together.
+
+rule fig_powerlaw_fits:
+    input:
+        all_runs="outputs/all_runs.parquet",
+        script="src/scripts/fig_powerlaw_fits.py",
+    output:
+        pdf="src/tex/figures/fig_powerlaw_fits.pdf",
+        table="src/tex/tables/tab_powerlaw.tex",
+    conda:
+        "environment.yml"
+    shell:
+        "python {input.script} "
+        "--all-runs {input.all_runs} "
+        "--out {output.pdf} "
+        "--table-out {output.table}"
