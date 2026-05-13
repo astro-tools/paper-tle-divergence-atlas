@@ -16,7 +16,12 @@ require_inputs: true
 datasets: {}
 
 # Per-script dependencies. Add entries as figures land.
-#   - src/scripts/fig_sgp4_growth.py:
-#       - outputs/
-#       - sweep/manifest.jsonl
-dependencies: []
+dependencies:
+  src/scripts/fig_constellation_map.py:
+    - src/data/tles_cache.parquet
+  src/scripts/fig_sgp4_growth.py:
+    - outputs/all_runs.parquet
+  src/scripts/fig_hifi_growth.py:
+    - outputs/all_runs.parquet
+  src/scripts/fig_propagator_scatter.py:
+    - outputs/all_runs.parquet

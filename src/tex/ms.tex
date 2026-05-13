@@ -86,16 +86,54 @@ layer and is revisited in Section~\ref{sec:discussion}.
 \section{Results}
 \label{sec:results}
 
-[TODO: insert figures, address H1/H2/H3.]
+[TODO: prose. H1 addressed in Figures~\ref{fig:sgp4-growth}
+and~\ref{fig:hifi-growth}; H2 in Figure~\ref{fig:propagator-scatter}.
+Captions below are placeholders pending final Results lock.]
 
-% Example placeholder figure block -- uncomment and rename when ready:
-% \begin{figure}[ht]
-%   \centering
-%   \includegraphics[width=\linewidth]{figures/fig_sgp4_growth.pdf}
-%   \caption{SGP4 propagation error vs. time since epoch.}
-%   \label{fig:sgp4-growth}
-%   \script{fig_sgp4_growth.py}
-% \end{figure}
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\linewidth]{figures/fig_constellation_map.pdf}
+  \caption{Sampled corpus. Pairwise scatter of semi-major axis,
+  eccentricity, and inclination for the $\sim$500 Starlink satellites in
+  the analysis sample. Altitude shell encoded by color, generation
+  encoded by marker shape; diagonal panels show marginal histograms.}
+  \label{fig:constellation-map}
+  \script{fig_constellation_map.py}
+\end{figure}
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\linewidth]{figures/fig_sgp4_growth.pdf}
+  \caption{SGP4 propagation error vs. $\Delta t$ since epoch, by altitude
+  shell within pooled-generation panels. Light scatter shows individual
+  $(\Delta t, |\Delta\mathbf{r}|)$ pairs; bold markers connected by lines
+  give the per-bucket median and the shaded band gives the 25th--75th
+  percentile range. Log-log axes; identical $y$-limits to
+  Figure~\ref{fig:hifi-growth}.}
+  \label{fig:sgp4-growth}
+  \script{fig_sgp4_growth.py}
+\end{figure}
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\linewidth]{figures/fig_hifi_growth.pdf}
+  \caption{High-fidelity propagation error vs. $\Delta t$ since epoch,
+  rendered with identical layout and axes to Figure~\ref{fig:sgp4-growth}
+  for direct visual comparison.}
+  \label{fig:hifi-growth}
+  \script{fig_hifi_growth.py}
+\end{figure}
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\linewidth]{figures/fig_propagator_scatter.pdf}
+  \caption{SGP4 vs.\ high-fidelity error per pair, at fixed $\Delta t$
+  buckets (rows) and altitude shells (columns). Color encodes pooled
+  generation; the dashed $y = x$ line marks parity, so points below are
+  pairs where the high-fidelity model beat SGP4.}
+  \label{fig:propagator-scatter}
+  \script{fig_propagator_scatter.py}
+\end{figure}
 
 \section{Discussion}
 \label{sec:discussion}
