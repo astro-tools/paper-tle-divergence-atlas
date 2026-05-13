@@ -30,7 +30,7 @@ Pipeline (three phases, single process for the driver):
        `outputs/run_<id>.parquet` with the comparison columns.
 
 `f107` (daily observed F10.7, sfu) and `ap` (planetary daily Ap) are
-joined from `src/data/sw_cache.parquet` by `date(epoch_i)` UTC. The
+joined from `src/static/sw_cache.parquet` by `date(epoch_i)` UTC. The
 cache is built by `sweep.space_weather`; a missing date raises rather
 than silently NaN-ing so a corpus window extension that outruns the
 cached SW window fails loudly.

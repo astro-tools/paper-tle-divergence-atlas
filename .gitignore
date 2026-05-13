@@ -49,7 +49,7 @@ outputs/
 sweep/manifest.jsonl
 
 # Raw Space-Track TLE dump (~100 MB; one-time fetch, not for commit).
-# The post-sample corpus (src/data/tles_cache.parquet) IS committed.
+# The post-sample corpus (src/static/tles_cache.parquet) IS committed.
 src/data/tles_raw.parquet
 src/data/_validate_pairs.png
 

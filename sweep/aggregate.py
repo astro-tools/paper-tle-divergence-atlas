@@ -141,7 +141,7 @@ def parse_args() -> argparse.Namespace:
         "--tles",
         type=Path,
         required=True,
-        help="Path to the cached TLE-pair corpus (src/data/tles_cache.parquet)",
+        help="Path to the cached TLE-pair corpus (src/static/tles_cache.parquet)",
     )
     parser.add_argument(
         "--manifest",

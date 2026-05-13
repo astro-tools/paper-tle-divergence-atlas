@@ -1,7 +1,7 @@
 """Unit tests for sweep.space_weather.
 
 Covers the text parser, the cache lookup, and the live cache committed
-at `src/data/sw_cache.parquet` (so a corpus-window extension that
+at `src/static/sw_cache.parquet` (so a corpus-window extension that
 silently outruns the committed window fails here, not deep in a sweep).
 """
 
@@ -90,9 +90,9 @@ class TestLookupForEpoch:
 
 
 class TestLoadSwCache:
-    """End-to-end check against the committed src/data/sw_cache.parquet."""
+    """End-to-end check against the committed src/static/sw_cache.parquet."""
 
-    CACHE_PATH = Path(__file__).resolve().parents[1] / "src" / "data" / "sw_cache.parquet"
+    CACHE_PATH = Path(__file__).resolve().parents[1] / "src" / "static" / "sw_cache.parquet"
 
     def test_cache_exists_and_loads(self) -> None:
         assert self.CACHE_PATH.exists(), f"{self.CACHE_PATH} missing — run `make fetch-sw`"
@@ -100,7 +100,7 @@ class TestLoadSwCache:
         assert len(lookup) > 0
 
     def test_covers_corpus_window(self) -> None:
-        # src/data/window.json: April 2026. Cache must cover at least
+        # src/static/window.json: April 2026. Cache must cover at least
         # the corpus window, with margin for window extensions.
         lookup = load_sw_cache(self.CACHE_PATH)
         for date in (dt.date(2026, 4, 1), dt.date(2026, 4, 15), dt.date(2026, 4, 30)):
