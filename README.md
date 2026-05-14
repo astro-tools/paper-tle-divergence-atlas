@@ -60,14 +60,13 @@ scratch (different corpus, or just a clean slate), delete
 | Stage | Hardware | Time |
 |---|---|---|
 | Render PDF from Zenodo cache | Any laptop | ~5 min |
-| Full sweep (3,000 runs) | 8-core workstation, GMAT installed | ~3 h |
-| Extended sensitivity run | Same | ~6 h additional |
+| Full sweep (24,641 runs) | 8-core workstation, GMAT installed | ~10 h |
 
 ## Data and code availability
 
 - **Code:** this repository (MIT licensed).
 - **Sweep outputs:** Zenodo concept DOI [TBD before v0.1.0 release].
-- **Input data:** Starlink TLEs from CelesTrak (cached in `src/static/`); solar activity from CelesTrak's space weather file.
+- **Input data:** Starlink TLEs from [Space-Track](https://www.space-track.org)'s `gp_history` endpoint, restricted to `OBJECT_NAME ~~ STARLINK` over the April 2026 window pinned in `src/static/window.json`. The committed `src/static/tles_cache.parquet` is the post-sample subset, so the manuscript build never re-fetches and does not require Space-Track credentials. Solar activity from [CelesTrak](https://celestrak.org/SpaceData/)'s space weather file (used only as an analysis annotation; GMAT's MSISE-90 reads its own space-weather inputs).
 - **Spacecraft properties:** per-NORAD-ID dry mass and structural span are taken from Jonathan McDowell's *General Catalog of Artificial Space Objects* ([GCAT](https://planet4589.org/space/gcat/)), with a snapshot of the relevant subset cached in `src/static/`. Cite McDowell, J. C. 2020, AJ, 159, 5.
 
 ## Citation
@@ -86,14 +85,14 @@ DOI minted at v0.1.0 release.
 
 ## Methodology — quick reference
 
-For full detail see Section 4 of the manuscript. In short, for each pair of consecutive Starlink TLEs (TLE_i, TLE_j):
+For full detail see Section 4 of the manuscript. In short, for each (TLE_i, TLE_j) pair of Starlink TLEs drawn at target staleness offsets Δt ∈ {6 h, 1 d, 3 d, 7 d}:
 
-1. Initialize a state at t_i from TLE_i (SGP4 internal evaluation at Δt=0, then TEME→J2000).
-2. Propagate forward to t_j with two propagators in parallel: SGP4-from-TLE_i and GMAT high-fidelity (EGM2008 70×70 + Sun/Moon/SRP + MSISE-90).
+1. Initialize a state at t_i from TLE_i (SGP4 internal evaluation at Δt=0, then TEME→MJ2000Eq via the FK5 reduction).
+2. Propagate forward to t_j with two propagators in parallel: SGP4-from-TLE_i and GMAT high-fidelity (EGM2008 70×70 + Sun/Moon point masses + SRP + MSISE-90, integrated with Runge–Kutta 8(9) to 10⁻¹² km tolerance).
 3. Compare both predicted states against the operator's next-TLE truth (SGP4(TLE_j, Δt=0)).
-4. Aggregate position errors by orbital regime, time since epoch, and solar activity.
+4. Aggregate position errors by altitude shell, spacecraft generation, time since epoch, and solar activity.
 
-This methodology follows Vallado & Cefola (2012); the contribution is constellation-scale application with open code and data.
+This methodology extends Vallado & Cefola (2012); the contribution is constellation-scale application with open code and data.
 
 ## Issues and feedback
 

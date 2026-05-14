@@ -1,39 +1,155 @@
-% Seed references; expand during writing.
+% Bibliography for paper-tle-divergence-atlas.
+% All entries verified against doi.org content negotiation, NASA ADS, or the
+% publisher's canonical page. Hand-crafted entries are reserved for sources
+% that have no peer-reviewed analogue (software packages, data products).
 
-@techreport{hoots2004,
+%--------------------------------------------------------------------
+% SGP4 and the TLE format
+%--------------------------------------------------------------------
+
+@article{hoots2004,
   author       = {Hoots, Felix R. and Schumacher, Paul W. and Glover, Robert A.},
-  title        = {History of Analytical Orbit Modeling in the U.S. Space Surveillance System},
-  institution  = {Journal of Guidance, Control, and Dynamics},
+  title        = {History of Analytical Orbit Modeling in the {U}.\,{S}.
+                  {S}pace {S}urveillance {S}ystem},
+  journal      = {Journal of Guidance, Control, and Dynamics},
   year         = {2004},
-  type         = {Vol. 27, No. 2}
+  volume       = {27},
+  number       = {2},
+  pages        = {174--185},
+  doi          = {10.2514/1.9161}
 }
 
 @inproceedings{vallado2006,
-  author       = {Vallado, David A. and Crawford, Paul and Hujsak, Richard and Kelso, T. S.},
-  title        = {Revisiting Spacetrack Report \#3},
-  booktitle    = {AIAA/AAS Astrodynamics Specialist Conference},
+  author       = {Vallado, David A. and Crawford, Paul and Hujsak, Richard
+                  and Kelso, T. S.},
+  title        = {Revisiting {S}pacetrack {R}eport \#3},
+  booktitle    = {AIAA/AAS Astrodynamics Specialist Conference and Exhibit},
   year         = {2006},
+  month        = aug,
+  doi          = {10.2514/6.2006-6753},
   note         = {AIAA 2006-6753}
 }
 
-@article{vallado2012,
-  author       = {Vallado, David A. and Cefola, Paul J.},
-  title        = {Two-line Element Sets -- Practice and Use},
-  journal      = {63rd International Astronautical Congress},
-  year         = {2012}
+@inproceedings{vallado_crawford2008,
+  author       = {Vallado, David A. and Crawford, Paul},
+  title        = {{SGP4} {O}rbit {D}etermination},
+  booktitle    = {AIAA/AAS Astrodynamics Specialist Conference and Exhibit},
+  year         = {2008},
+  month        = aug,
+  doi          = {10.2514/6.2008-6770},
+  note         = {AIAA 2008-6770}
 }
 
-@misc{crawford2007,
-  author       = {Crawford, Paul S.},
-  title        = {SGP4 Orbit Determination},
-  year         = {2007},
-  note         = {AIAA 2007-XXXX (placeholder; replace with correct citation during writing)}
+@inproceedings{vallado2012,
+  author       = {Vallado, David A. and Cefola, Paul J.},
+  title        = {Two-line {E}lement {S}ets --- {P}ractice and {U}se},
+  booktitle    = {63rd International Astronautical Congress},
+  year         = {2012},
+  note         = {IAC-12-A6.6.11}
 }
+
+@book{vallado2013,
+  author       = {Vallado, David A.},
+  title        = {Fundamentals of Astrodynamics and Applications},
+  edition      = {4th},
+  publisher    = {Microcosm Press},
+  address      = {Hawthorne, CA},
+  series       = {Space Technology Library},
+  year         = {2013},
+  isbn         = {978-1881883180}
+}
+
+@misc{rhodes_sgp4,
+  author       = {Rhodes, Brandon},
+  title        = {{sgp4}: {P}ython implementation of the {SGP4}/{SDP4}
+                  satellite-tracking algorithm},
+  howpublished = {Python package; \url{https://github.com/brandon-rhodes/python-sgp4}},
+  year         = {2024},
+  note         = {Implementation of the reference {SGP4} code from
+                  \citet{vallado2006}; accessed 2026-05-13}
+}
+
+%--------------------------------------------------------------------
+% Force-model components used by the GMAT high-fidelity propagator
+%--------------------------------------------------------------------
+
+@article{pavlis2012,
+  author       = {Pavlis, Nikolaos K. and Holmes, Simon A. and Kenyon, Steve C.
+                  and Factor, John K.},
+  title        = {The development and evaluation of the {E}arth
+                  {G}ravitational {M}odel 2008 ({EGM2008})},
+  journal      = {Journal of Geophysical Research: Solid Earth},
+  year         = {2012},
+  volume       = {117},
+  number       = {B4},
+  pages        = {B04406},
+  doi          = {10.1029/2011JB008916}
+}
+
+@article{hedin1991,
+  author       = {Hedin, A. E.},
+  title        = {Extension of the {MSIS} thermosphere model into the middle
+                  and lower atmosphere},
+  journal      = {Journal of Geophysical Research: Space Physics},
+  year         = {1991},
+  volume       = {96},
+  number       = {A2},
+  pages        = {1159--1172},
+  doi          = {10.1029/90JA02125}
+}
+
+@article{verner1978,
+  author       = {Verner, J. H.},
+  title        = {Explicit {R}unge--{K}utta methods with estimates of the
+                  local truncation error},
+  journal      = {SIAM Journal on Numerical Analysis},
+  year         = {1978},
+  volume       = {15},
+  number       = {4},
+  pages        = {772--790},
+  doi          = {10.1137/0715051}
+}
+
+%--------------------------------------------------------------------
+% Frame / time conventions
+%--------------------------------------------------------------------
+
+@techreport{iers2010,
+  author       = {Petit, G{\'e}rard and Luzum, Brian},
+  title        = {{IERS} {C}onventions (2010)},
+  institution  = {International Earth Rotation and Reference Systems Service},
+  type         = {IERS Technical Note},
+  number       = {36},
+  year         = {2010},
+  address      = {Frankfurt am Main},
+  note         = {Verlag des Bundesamts f{\"u}r Kartographie und Geod{\"a}sie,
+                  ISBN 3-89888-989-6}
+}
+
+%--------------------------------------------------------------------
+% Maneuver-detection lineage
+%--------------------------------------------------------------------
+
+@article{lemmens2014,
+  author       = {Lemmens, Stijn and Krag, Holger},
+  title        = {Two-{L}ine-{E}lements-{B}ased {M}aneuver {D}etection
+                  {M}ethods for {S}atellites in {L}ow {E}arth {O}rbit},
+  journal      = {Journal of Guidance, Control, and Dynamics},
+  year         = {2014},
+  volume       = {37},
+  number       = {3},
+  pages        = {860--868},
+  doi          = {10.2514/1.61300}
+}
+
+%--------------------------------------------------------------------
+% Megaconstellation-era operational context
+%--------------------------------------------------------------------
 
 @article{mcdowell2020,
   author       = {McDowell, Jonathan C.},
-  title        = {The {Low} {Earth} {Orbit} {Satellite} {Population} and {Impacts}
-                  of the {SpaceX} {Starlink} {Constellation}},
+  title        = {The {L}ow {E}arth {O}rbit {S}atellite {P}opulation and
+                  {I}mpacts of the {S}pace{X} {S}tarlink {C}onstellation},
   journal      = {The Astrophysical Journal Letters},
   year         = {2020},
   volume       = {892},
@@ -47,9 +163,9 @@
   author       = {Baruah, Yoshita and Roy, Souvik and Sinha, Suvadip and
                   Palmerio, Erika and Pal, Sanchita and Oliveira, Denny M.
                   and Nandy, Dibyendu},
-  title        = {The {Loss} of {Starlink} {Satellites} in {February} 2022:
-                  How {Moderate} {Geomagnetic} {Storms} {Can} {Adversely}
-                  {Affect} {Assets} in {Low}-{Earth} {Orbit}},
+  title        = {The {L}oss of {S}tarlink {S}atellites in {F}ebruary 2022:
+                  {H}ow {M}oderate {G}eomagnetic {S}torms {C}an {A}dversely
+                  {A}ffect {A}ssets in {L}ow-{E}arth {O}rbit},
   journal      = {Space Weather},
   year         = {2024},
   volume       = {22},
@@ -60,9 +176,8 @@
 
 @misc{krebs_starlink_v2mini,
   author       = {Krebs, Gunter D.},
-  title        = {Starlink {Block} v2-{Mini}},
-  howpublished = {Gunter's Space Page},
+  title        = {{S}tarlink {B}lock v2-{M}ini},
+  howpublished = {Gunter's Space Page; \url{https://space.skyrocket.de/doc_sdat/starlink-v2-mini.htm}},
   year         = {2024},
-  url          = {https://space.skyrocket.de/doc_sdat/starlink-v2-mini.htm},
   note         = {Accessed 2026-05-11}
 }
