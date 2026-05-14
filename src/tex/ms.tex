@@ -150,6 +150,130 @@ to tracking observations or operator-internal state vectors, which
 permits constellation-scale application from a single archived TLE
 history.
 
+\subsection{Interpretational limits of next-TLE-as-truth}
+\label{sec:background-truth-floor}
+
+The next-TLE proxy is not a ground-truth measurement, and treating
+it as one would overclaim the precision of the comparison. A
+position error measured against $\mathrm{SGP4}(\mathrm{TLE}_{j},\,
+\Delta t = 0)$ decomposes into three contributions:
+\begin{equation}
+  \label{eq:error-budget}
+  \underbrace{\Delta\mathbf{r}_{\mathrm{obs}}(t_{j})}_{\text{what we measure}}
+  \;=\;
+  \underbrace{\boldsymbol{\Phi}(t_{j},\,t_{i})\,\Delta\mathbf{r}_{\mathrm{OD}}(t_{i})}_{\text{epoch-}t_{i}\text{ OD residual, propagated}}
+  \;+\;
+  \underbrace{\Delta\mathbf{r}_{\mathrm{prop}}(t_{i}\!\to\!t_{j})}_{\text{propagator error}}
+  \;-\;
+  \underbrace{\Delta\mathbf{r}_{\mathrm{OD}}(t_{j})}_{\text{epoch-}t_{j}\text{ OD residual}},
+\end{equation}
+where $\Delta\mathbf{r}_{\mathrm{OD}}$ denotes the operator's
+observation-fit residual at the indicated epoch and $\boldsymbol{
+\Phi}$ is the state-transition matrix of the chosen propagator over
+$(t_{i},\,t_{j}]$. Throughout this paper, every reported error norm
+$\lVert\Delta\mathbf{r}_{\mathrm{SGP4}}\rVert$ or
+$\lVert\Delta\mathbf{r}_{\mathrm{hifi}}\rVert$ is the left-hand side
+of Eq.~\eqref{eq:error-budget}; the propagator term in the middle
+cannot be cleanly isolated from observation residuals at either
+epoch using public TLEs alone.
+
+The practical consequence is a regime split. At long staleness
+($\Delta t = 7$~days, where Section~\ref{sec:results} reports
+median observed errors of $40$--$130$~km) the OD-residual terms in
+Eq.~\eqref{eq:error-budget} are at the percent level relative to
+the observed total (we quantify the floor at order $1$~km
+empirically below), and the propagator term dominates whether
+evaluated with SGP4 or with a high-fidelity force model. At the
+operationally relevant 6~h horizon, where
+Section~\ref{sec:results} reports a pooled median observed error of
+$\sim 1$~km, the OD-residual floor is the same order as the signal
+itself.
+
+No operator publishes an internal OD-residual figure for Starlink.
+The three public quantifications closest to the question bracket
+it from different sides, none of them an exact match.
+\citet{lang2025} apply a third-party unscented batch filter to
+maneuvering Starlinks and recover 24-hour position predictions
+with RMS error below $3$~km. The commercial radar tracking service
+described in the \citet{leolabs_eoportal} survey reports state
+estimates better than $1$~km at time of estimation for
+$\sim 95\%$ of LEO objects (and better than $200$~m for
+$\sim 50\%$), without distinguishing Starlink from the broader
+population. SpaceX's own narrative submission to the FCC on
+positioning, navigation, and timing \citep{spacex_fcc_pnt}
+discusses terminal-segment metric-precision positioning but does
+not publish a satellite OD residual. None of these directly
+answers Eq.~\eqref{eq:error-budget}: \citet{lang2025} and
+\citet{leolabs_eoportal} characterise third-party OD pipelines
+that observe the constellation \emph{less} precisely than the
+operator does --- SpaceX has onboard GNSS on every satellite ---
+so the operator-internal residual at $t_{j}$ is plausibly tighter
+than the $\sim 1$~km outer bound those third-party pipelines
+place on it; and the FCC submission targets user-equipment
+positioning, not space-segment OD. We therefore measure the floor
+directly with the diagnostic below.
+
+We quantify the floor empirically by repeatedly propagating
+$\mathrm{TLE}_{j-N}$ to $t_{j}$ with the same GMAT high-fidelity
+configuration the main sweep uses (Section~\ref{sec:methods-forcemodel})
+and comparing to $\mathrm{SGP4}(\mathrm{TLE}_{j},\,\Delta t = 0)$
+for $N \in \{1,\,2,\,3,\,6\}$. To capture inter-cohort variation
+rather than over-generalising from a single representative, the
+diagnostic runs the densest-sampled corpus satellite in each of the
+eight populated (altitude shell~$\times$~generation) cells of
+Table~\ref{tab:corpus} --- 122--131 TLEs per sat, 3{,}121 arcs in
+total after the 100~m SMA-jump maneuver filter of
+Section~\ref{sec:methods-pairs}. Per-cohort medians at the shortest
+arc ($N = 1$, $\Delta t \approx 4$--$5$~h) are listed in
+Table~\ref{tab:truth-floor}. Two features of the table carry the
+interpretation. First, every populated cohort sits in $0.81$--$1.37$~km
+at the 5~h scale; the floor is, to within a factor of two,
+\emph{cohort-independent} --- v2-mini is not measurably worse than
+v1.5, and altitude separates the cohorts only weakly. Second, the
+pooled $N = 1$ median of $1.11$~km (IQR $0.23$--$2.89$~km) already
+exceeds the SGP4 pooled median at $\Delta t = 6$~h reported in
+Section~\ref{sec:results}, which is the empirical statement of
+floor limitation: even with a strictly better propagator
+\emph{and} a strictly fresher starting TLE, the residual against
+the proxy truth cannot drop below $\mathcal{O}(1)$~km regardless
+of cohort, because that floor is built into the two TLE-derived
+states it is constructed from. The 6~h headline reported below
+should be read accordingly --- as a measurement constrained by the
+precision of public TLE delivery, not by propagator skill, and
+constrained \emph{uniformly} across the corpus.
+
+\begin{table}[ht]
+  \centering
+  \caption{Empirical truth-floor diagnostic, per (altitude shell
+  $\times$ generation) cohort. Each row is the densest-sampled
+  corpus satellite in that cell, swept across
+  $N \in \{1,\,2,\,3,\,6\}$ TLE offsets back from $\mathrm{TLE}_{j}$;
+  the reported $|\Delta\mathbf{r}|$ is measured against
+  $\mathrm{SGP4}(\mathrm{TLE}_{j},\,\Delta t = 0)$ at $t_{j}$. Only
+  the shortest-arc median is tabulated for compactness; larger $N$
+  trends are in the diagnostic JSON. All arcs survive the 100~m
+  SMA-jump maneuver filter. The 540~km~$\times$~v2-mini cell is empty
+  in the corpus (Table~\ref{tab:corpus}).}
+  \label{tab:truth-floor}
+  \begin{tabular}{lllrrrrr}
+    \toprule
+    Shell (km) & Gen & NORAD & TLEs & arcs ($N\!=\!1$) & $\Delta t$ (h) & median $|\Delta\mathbf{r}|$ (km) & IQR (km) \\
+    \midrule
+    540 & v1.0    & 48555 & 122 &  64 &  4.4 & 1.02 & 0.01--2.98 \\
+    540 & v1.5    & 49766 & 125 & 123 &  4.8 & 1.17 & 0.23--4.10 \\
+    540 & v2-mini & ---   & --- & --- &  --- & ---  & --- \\
+    550 & v1.0    & 48306 & 106 &  60 &  4.0 & 0.94 & 0.12--4.01 \\
+    550 & v1.5    & 53675 & 131 & 112 &  4.8 & 1.20 & 0.53--3.06 \\
+    550 & v2-mini & 65384 & 127 & 123 &  4.8 & 1.11 & 0.01--2.75 \\
+    560 & v1.0    & 48881 & 124 & 123 &  4.8 & 1.31 & 0.50--2.39 \\
+    560 & v1.5    & 56495 & 129 & 128 &  4.8 & 0.81 & 0.23--1.90 \\
+    560 & v2-mini & 63926 & 125 & 111 &  4.8 & 1.37 & 0.01--3.64 \\
+    \midrule
+    \multicolumn{4}{l}{\textit{Pooled across cohorts}} & 844 & --- & 1.11 & 0.23--2.89 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
 The constellation-era context is set by two recent results.
 \citet{mcdowell2020} documents the shift in the LEO satellite
 population during the first phase of Starlink deployment and
@@ -404,8 +528,8 @@ For each sweep run we compute two position-error vectors at the end
 epoch $t_{j}$, both in MJ2000Eq. The first,
 $\Delta\mathbf{r}_{\mathrm{SGP4}}$, is the difference between the
 state obtained by propagating the starting TLE with SGP4 to $t_{j}$
-and the operator's next-TLE-as-truth state, the latter constructed
-by evaluating SGP4 at $\Delta t = 0$ on the matched ending TLE. The
+and the proxy truth (next-TLE state) at $t_{j}$, constructed by
+evaluating SGP4 at $\Delta t = 0$ on the matched ending TLE. The
 second, $\Delta\mathbf{r}_{\mathrm{hifi}}$, is the corresponding
 difference for the GMAT high-fidelity propagation initialised from
 the same starting state in MJ2000Eq. The L$_{2}$ norms
@@ -417,8 +541,8 @@ Figure~\ref{fig:propagator-scatter}, and the per-cell power-law
 fits of Figure~\ref{fig:powerlaw-fits} and Table~\ref{tab:powerlaw}.
 
 We additionally decompose each error vector into radial, along-track,
-and cross-track components in the local orbital frame of the truth
-state at $t_{j}$. The basis follows the standard RSW construction
+and cross-track components in the local orbital frame of the
+next-TLE proxy at $t_{j}$. The basis follows the standard RSW construction
 \citep[\S\,3.4]{vallado2013}:
 $\hat{\mathbf{e}}_{r} = \hat{\mathbf{r}}_{\mathrm{truth}}$;
 $\hat{\mathbf{e}}_{h} = \widehat{(\mathbf{r}\times\mathbf{v})}
@@ -485,12 +609,14 @@ Captions below are placeholders pending final Results lock.]
 \begin{figure}[ht]
   \centering
   \includegraphics[width=\linewidth]{figures/fig_sgp4_growth.pdf}
-  \caption{SGP4 propagation error vs. $\Delta t$ since epoch, by altitude
-  shell within pooled-generation panels. Light scatter shows individual
+  \caption{SGP4 propagation error against the next-TLE proxy vs.
+  $\Delta t$ since epoch, by altitude shell within
+  pooled-generation panels. Light scatter shows individual
   $(\Delta t, |\Delta\mathbf{r}|)$ pairs; bold markers connected by lines
   give the per-bucket median and the shaded band gives the 25th--75th
   percentile range. Log-log axes; identical $y$-limits to
-  Figure~\ref{fig:hifi-growth}.}
+  Figure~\ref{fig:hifi-growth}. The 6~h bucket is floor-limited
+  per Section~\ref{sec:background-truth-floor}.}
   \label{fig:sgp4-growth}
   \script{fig_sgp4_growth.py}
 \end{figure}
@@ -543,7 +669,7 @@ Captions below are placeholders pending final Results lock.]
   \centering
   \includegraphics[width=\linewidth]{figures/fig_error_decomposition.pdf}
   \caption{Error decomposition into along-track, cross-track, and radial
-  components of $\Delta\mathbf{r}$ in the truth state's RSW frame.
+  components of $\Delta\mathbf{r}$ in the next-TLE-proxy RSW frame.
   Per-bucket medians with IQR ribbons; solid lines are SGP4, dashed
   lines are high-fidelity; color encodes pooled generation. Confirms
   the along-track-dominant character of long-$\Delta t$ error.}
@@ -567,9 +693,62 @@ Captions below are placeholders pending final Results lock.]
 \section{Discussion}
 \label{sec:discussion}
 
-[TODO: practical implications for downstream TLE consumers; whether
-investing in high-fidelity OD is justified for public TLE workflows;
-limitations.]
+A useful sanity check on the 6~h headline number is to compare it
+directly with the truth-floor diagnostic of
+Section~\ref{sec:background-truth-floor}. Pooled across the eight
+cohort representatives, the diagnostic returns a median L$_{2}$
+residual of $1.11$~km on a $\sim 5$~h short arc (per-cohort medians
+$0.81$--$1.37$~km, Table~\ref{tab:truth-floor}), whereas the SGP4
+pooled median at $\Delta t = 6$~h reported in
+Section~\ref{sec:results} is below that value at $\sim 1$~km. Two
+TLE-derived states separated by one operator update interval cannot
+agree better than the floor implied by their independent OD
+residuals; the only way the observed 6~h SGP4 number sits beneath
+the diagnostic floor is by partial self-cancellation between
+adjacent OD residuals (shared attitude assumptions, shared
+recent-maneuver history, common-mode atmospheric mis-fits within
+the operator's batch window), and the gap between the two numbers
+quantifies how much of the 6~h signal is floor versus propagator.
+Treating the diagnostic value as an estimate of the at-epoch OD
+residual scale $\delta_{\mathrm{OD}}$ and propagating it through
+the power-law fit $\lVert\Delta\mathbf{r}\rVert \approx A\,\Delta
+t^{k}$ (Section~\ref{sec:results}, Table~\ref{tab:powerlaw}), the
+$\delta_{\mathrm{OD}}$ contribution biases the fitted coefficient
+$A$ upwards by an amount that scales as
+$\delta_{\mathrm{OD}}\,\Delta t^{-k}$ --- meaningful at 6~h (where
+it accounts for the bulk of the observed value), negligible by
+7~days (where the absolute observed error is two orders of
+magnitude larger).
+
+The floor argument does \emph{not} carry over to the pair-by-pair
+propagator skill comparison of Figure~\ref{fig:propagator-scatter},
+and the empirical win-fraction data clarifies why. At
+$\Delta t = 6$~h, $\mathrm{SGP4}$ wins on
+$\lVert\Delta\mathbf{r}\rVert$ for $68.8\%$ of the $5{,}421$ pairs
+in the corpus ($n_{\mathrm{hifi-wins}}/n = 31.2\%$); by
+$\Delta t = 7$~d, the SGP4-wins fraction climbs to $82.1\%$ of
+$3{,}831$ pairs. A naive expectation that floor dominance would
+collapse the 6~h paired distribution onto the $y = x$ diagonal is
+wrong: both arms inherit the \emph{same}
+$\delta_{\mathrm{OD}}(t_{j})$ at the truth epoch and the same
+$\boldsymbol{\Phi}\,\delta_{\mathrm{OD}}(t_{i})$ at the start
+epoch, so the floor terms cancel from the
+$\lVert\Delta\mathbf{r}_{\mathrm{SGP4}}\rVert -
+\lVert\Delta\mathbf{r}_{\mathrm{hifi}}\rVert$ \emph{differential}
+even when they dominate each absolute norm. The floor inflates the
+$y$-axis and $x$-axis of Figure~\ref{fig:propagator-scatter}
+together but does not bias the win count, and the empirical
+$31.2\%$ at 6~h is the genuine SGP4-vs-hi-fid skill differential
+on the floor-saturated horizon --- a 19-percentage-point shortfall
+of hi-fid below the null, climbing to a 32-pp shortfall by 7~d.
+This is the sharpest form of the H2 negative result:
+high-fidelity propagation initialised from a public TLE is behind
+SGP4 at the operationally relevant 6~h horizon even after the
+floor is accounted for, not merely indistinguishable from it.
+
+[TODO: complete §5 in issue \#7 --- practical implications for
+downstream TLE consumers, whether investing in high-fidelity OD is
+justified for public-TLE workflows, the full set of limitations.]
 
 \section{Conclusion}
 \label{sec:conclusion}
