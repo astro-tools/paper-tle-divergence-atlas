@@ -447,6 +447,20 @@ def _cli() -> int:
     pj.add_argument("--raw", type=Path, default=Path("src/data/tles_raw.parquet"))
     pj.add_argument("--out", type=Path, default=Path("src/static/maneuver_jumps.parquet"))
 
+    ps = sub.add_parser(
+        "selection-stats",
+        help="Compute inter-TLE interval + per-sat longest-gap series across the "
+        "501-sat corpus population → static parquet for the selection-effect figure.",
+    )
+    ps.add_argument("--raw", type=Path, default=Path("src/data/tles_raw.parquet"))
+    ps.add_argument(
+        "--cache",
+        type=Path,
+        default=Path("src/static/tles_cache.parquet"),
+        help="Corpus pair cache — used only to determine the 501-sat corpus population.",
+    )
+    ps.add_argument("--out", type=Path, default=Path("src/static/selection_stats.parquet"))
+
     args = parser.parse_args()
 
     if args.cmd == "fetch":
@@ -487,6 +501,48 @@ def _cli() -> int:
         out_df.to_parquet(args.out, compression="gzip", index=False)
         print(
             f"computed {len(jumps):,} consecutive |Δa| values → {args.out}",
+            file=sys.stderr,
+        )
+        return 0
+
+    if args.cmd == "selection-stats":
+        raw = pd.read_parquet(args.raw)
+        cache = pd.read_parquet(args.cache)
+        corpus_ids = set(cache["norad_id"].unique())
+        corpus_raw = raw[raw["norad_id"].isin(corpus_ids)].sort_values(["norad_id", "epoch"])
+        # Inter-TLE intervals: per-sat consecutive gaps. The first row per
+        # sat is NaN-dropped so each value is a real interval.
+        diffs = corpus_raw.groupby("norad_id")["epoch"].diff().dropna()
+        intervals_h = (diffs.dt.total_seconds() / 3600.0).astype(np.float32).to_numpy()
+        # Per-sat longest gap, one value per corpus sat present in the
+        # raw window. Sats with a single TLE in the window are dropped
+        # (no gap defined) -- there are none in the 501-sat corpus, but
+        # the guard keeps the script robust to corpus rebuilds.
+        per_sat_longest_h = (
+            corpus_raw.groupby("norad_id")["epoch"]
+            .apply(
+                lambda s: s.diff().max().total_seconds() / 3600.0 if len(s) > 1 else float("nan"),
+            )
+            .dropna()
+            .astype(np.float32)
+            .to_numpy()
+        )
+        out_df = pd.DataFrame(
+            {
+                "kind": np.concatenate(
+                    [
+                        np.full(len(intervals_h), "interval_h", dtype=object),
+                        np.full(len(per_sat_longest_h), "longest_per_sat_h", dtype=object),
+                    ],
+                ),
+                "value_h": np.concatenate([intervals_h, per_sat_longest_h]),
+            },
+        )
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        out_df.to_parquet(args.out, compression="gzip", index=False)
+        print(
+            f"selection-stats: {len(intervals_h):,} inter-TLE intervals + "
+            f"{len(per_sat_longest_h):,} per-sat longest gaps → {args.out}",
             file=sys.stderr,
         )
         return 0
