@@ -428,19 +428,20 @@ the 95th percentile across sats. Empirically, $40\%$
 of $(\text{starting~TLE} \times \Delta t)$ attempts produce a
 matched pair within the $\pm 2$~h tolerance and the rest do not
 ($60.6\%$ unmatched at $\Delta t = 6$~h, $32.1\%$ at $1$~d,
-$43.9\%$ at $3$~d, $59.3\%$ at $7$~d); the corresponding
-diagnostic is in \texttt{outputs/\_selection\_effect.json}. The
-high unmatched fractions are dominated by the Poisson-window
-character of the matching --- the $4$~h target window is the same
-order as the typical inter-TLE spacing, so a randomly-placed
-target window has only an $\sim 40\%$ chance of containing any
-TLE in dense tracking conditions --- rather than by tracking-gap
-selection. The bias toward well-tracked sat-days is quantitatively
-bounded: the 95th-percentile worst per-sat gap of $\sim 42$~h is
-well inside the longest $\Delta t$ target ($168$~h), so no
-satellite is systematically excluded; the conclusions of
+$43.9\%$ at $3$~d, $59.3\%$ at $7$~d). The high unmatched
+fractions are dominated by the Poisson-window character of the
+matching --- the $4$~h target window is the same order as the
+typical inter-TLE spacing, so a randomly-placed target window has
+only an $\sim 40\%$ chance of containing any TLE in dense
+tracking conditions --- rather than by tracking-gap selection.
+The bias toward well-tracked sat-days is quantitatively bounded:
+the 95th-percentile worst per-sat gap of $\sim 42$~h is well
+inside the longest $\Delta t$ target ($168$~h), so no satellite is
+systematically excluded; the conclusions of
 Section~\ref{sec:results} characterise propagator behaviour during
-sat-days the operator successfully covered.
+sat-days the operator successfully covered. Both distributions are
+visualised in
+Figure~\ref{fig:selection-effect}~(Appendix~\ref{app:selection-effect}).
 
 A pair $(\mathrm{TLE}_{i},\,\mathrm{TLE}_{j})$ is retained only if
 no maneuver was detected anywhere inside the half-open interval
@@ -922,6 +923,49 @@ cache, with the 100\,m threshold marked.
   cleanly on either side.}
   \label{fig:maneuver-filter}
   \script{fig_maneuver_filter.py}
+\end{figure}
+
+\section{Pair-matching selection-effect diagnostic}
+\label{app:selection-effect}
+
+Section~\ref{sec:methods-pairs} quotes two distinct quantities to
+support the claim that the $\pm 2$~h pair-matching tolerance does
+not systematically bias the corpus against periods of poor
+operator tracking. Figure~\ref{fig:selection-effect} visualises
+both. Panel~(a) shows the distribution of inter-TLE intervals
+across the 56{,}118 per-sat consecutive pairs in the 501-sat
+corpus population; the bulk clusters near the $\sim 4.8$~h
+median, with a right tail extending past 24~h, and the $\pm 2$~h
+($4$~h-wide) matching window is the same order as the typical
+inter-TLE spacing --- so a randomly-placed target window will
+often contain zero TLEs by Poisson statistics alone, independent
+of any tracking quality variation. Panel~(b) shows the empirical
+cumulative distribution of the per-sat longest within-window gap.
+The 95th-percentile worst per-sat gap sits at $\sim 42$~h, well
+inside the longest $\Delta t$ target ($168$~h), so every
+corpus satellite produces matched pairs at most of its
+sat-days at the 1, 3, and 7~d horizons; only the 6~h target is
+materially affected by the right tail, and only by a Poisson
+mechanism that is roughly uniform across sats. Together these
+panels are the empirical basis for the §\,\ref{sec:methods-pairs}
+conclusion that the corpus is mildly biased toward well-tracked
+sat-days but is not asymmetrically excluding any satellite.
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\linewidth]{figures/fig_selection_effect.pdf}
+  \caption{Selection-effect diagnostic for the $\pm 2$~h
+  pair-matching tolerance. (a) Histogram of inter-TLE intervals
+  across the corpus (log-x); the dashed line marks the
+  $4$~h-wide tolerance window, the dotted line a $12$~h
+  reference. (b) Empirical CDF of per-sat longest within-window
+  gaps across the 501 sampled sats; vertical lines mark the four
+  $\Delta t$ targets. The 95th-percentile worst per-sat gap
+  ($\sim 42$~h) is well inside the longest $\Delta t$ target
+  ($168$~h), so no sat is systematically excluded by the
+  matching tolerance.}
+  \label{fig:selection-effect}
+  \script{fig_selection_effect.py}
 \end{figure}
 
 \section*{Data and code availability}

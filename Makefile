@@ -16,6 +16,9 @@ help:
 	@echo "                  src/static/tles_cache.parquet"
 	@echo "  build-maneuver-jumps -- per-consecutive-pair |Δa| from the raw cache →"
 	@echo "                          src/static/maneuver_jumps.parquet (F8 input)."
+	@echo "  build-selection-stats -- inter-TLE intervals + per-sat longest-gap series for"
+	@echo "                           the 501-sat corpus → src/static/selection_stats.parquet"
+	@echo "                           (selection-effect appendix figure input)."
 	@echo "  build        -- render PDF via showyourwork (uses Zenodo-cached outputs)"
 	@echo "  smoke        -- run an N=8 sweep against the cached corpus (requires GMAT)"
 	@echo "  sweep        -- run the gmat-sweep locally (requires GMAT; ~10 h on 8 cores)"
@@ -60,6 +63,12 @@ build-maneuver-jumps:
 	python -m sweep.tle_pipeline maneuver-jumps \
 	    --raw src/data/tles_raw.parquet \
 	    --out src/static/maneuver_jumps.parquet
+
+build-selection-stats:
+	python -m sweep.tle_pipeline selection-stats \
+	    --raw src/data/tles_raw.parquet \
+	    --cache src/static/tles_cache.parquet \
+	    --out src/static/selection_stats.parquet
 
 build:
 	showyourwork build
