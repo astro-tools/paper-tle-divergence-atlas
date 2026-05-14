@@ -148,7 +148,11 @@ observation-fit residual is present in the next TLE. Its principal
 merit for an open-data study is that it requires no privileged access
 to tracking observations or operator-internal state vectors, which
 permits constellation-scale application from a single archived TLE
-history.
+history. The operator's orbit determination is itself smoothed over
+a fit window of order $1$--$2$ days, so the resulting $B^{\!\star}$
+and mean motion at epoch are averaged quantities rather than
+instantaneous ones --- relevant later for the
+F10.7-modulation interpretation in Section~\ref{sec:results}.
 
 \subsection{Interpretational limits of next-TLE-as-truth}
 \label{sec:background-truth-floor}
@@ -287,6 +291,25 @@ work on public-TLE accuracy at constellation scale in the
 megaconstellation era remains sparse; the present paper is intended
 in part to address that gap.
 
+Complementary recent work has focused on \emph{extending} SGP4 to
+close the gap with numerical propagators rather than measuring the
+gap. SGP4-XP \citep{payne_sgp4xp_2022} extends the standard SGP4
+analytic perturbation series with refined lunisolar gravity,
+generalised resonance handling, solar radiation pressure for
+high area-to-mass-ratio objects, and improved atmospheric density
+modelling near Earth, while preserving the SGP4 evaluation budget
+and the TLE input format. The differentiable-SGP4 line of work
+\citep{acciarini_dsgp4_2025} reimplements the SGP4 analytic kernel
+in a differentiable framework so the propagator can be fine-tuned
+with gradient-based methods against observed ephemerides, and
+composed with neural-network residual correctors. Our contribution
+is orthogonal: we empirically characterise the baseline SGP4
+versus high-fidelity behaviour on an operator megaconstellation
+using only the public TLE format, and the per-cell
+$(A,\,k)$ power-law table summarised in
+Section~\ref{sec:results} is in a form usable as a benchmark
+target by enhanced-propagator work of either flavour.
+
 Operational LEO satellites maneuver, and a TLE pair whose interval
 encloses a station-keeping burn violates the no-maneuver assumption
 behind the next-TLE-as-truth comparison. \citet{lemmens2014}
@@ -361,6 +384,22 @@ no v2-mini coverage in the analysis window, while the 550 and 560
 shells contain a mix of generations
 (Figure~\ref{fig:constellation-map}, Table~\ref{tab:corpus}).
 
+From each sampled satellite's per-window TLE history we draw one
+starting TLE per satellite-day --- specifically, the earliest
+available epoch at or after 00{:}00 UTC of each day in the
+analysis window. The one-per-day subsampling has two motivations.
+First, Starlink's $\sim 6\times$/day publication cadence would
+otherwise multiply-count nearly-identical operator OD epochs into
+a corpus of strongly within-sat correlated pairs, inflating
+effective sample size without adding statistical leverage.
+Second, choosing the earliest daily epoch deterministically (rather
+than a random TLE within each day) makes the corpus bit-reproducible
+without recourse to an additional seed beyond
+\texttt{20260401} above. The starting-TLE count of $14{,}917$ across
+the 501 sampled sats reflects $\lesssim 30$ days of starting epochs
+per sat, less the small number of sat-days with no TLE on record
+($\lesssim 1\%$ of expected sat-day cells).
+
 \subsection{Pair construction and maneuver filter}
 \label{sec:methods-pairs}
 
@@ -375,6 +414,33 @@ downstream consumer tools most often operate. The remaining offsets
 at 1, 3, and 7 days span the short-, medium-, and long-staleness
 ranges over which the power-law staleness curve assumed in
 Hypothesis~H1 is statistically meaningful.
+
+The $\pm 2$~h matching tolerance can in principle bias the corpus
+against periods of poor operator tracking: a starting epoch
+straddled by a multi-hour gap in the per-sat history would fail
+to produce a pair at one or more $\Delta t$ targets. Across the
+501-sat corpus and its $\sim 56{,}000$ in-window TLEs the median
+inter-TLE interval is $4.8$~h (90th percentile $15.9$~h, 99th
+percentile $23.9$~h, single maximum $108$~h); $17.6\%$ of
+consecutive intervals exceed $12$~h, and the median satellite has
+a longest within-window gap of $25.5$~h, rising to $41.7$~h at
+the 95th percentile across sats. Empirically, $40\%$
+of $(\text{starting~TLE} \times \Delta t)$ attempts produce a
+matched pair within the $\pm 2$~h tolerance and the rest do not
+($60.6\%$ unmatched at $\Delta t = 6$~h, $32.1\%$ at $1$~d,
+$43.9\%$ at $3$~d, $59.3\%$ at $7$~d); the corresponding
+diagnostic is in \texttt{outputs/\_selection\_effect.json}. The
+high unmatched fractions are dominated by the Poisson-window
+character of the matching --- the $4$~h target window is the same
+order as the typical inter-TLE spacing, so a randomly-placed
+target window has only an $\sim 40\%$ chance of containing any
+TLE in dense tracking conditions --- rather than by tracking-gap
+selection. The bias toward well-tracked sat-days is quantitatively
+bounded: the 95th-percentile worst per-sat gap of $\sim 42$~h is
+well inside the longest $\Delta t$ target ($168$~h), so no
+satellite is systematically excluded; the conclusions of
+Section~\ref{sec:results} characterise propagator behaviour during
+sat-days the operator successfully covered.
 
 A pair $(\mathrm{TLE}_{i},\,\mathrm{TLE}_{j})$ is retained only if
 no maneuver was detected anywhere inside the half-open interval
@@ -494,13 +560,42 @@ tolerance across the longest seven-day arcs in the corpus with no
 observed integration failures (manifest tally: 24{,}641
 ok\,/\,$0$\,failed).
 
+The Earth-gravity-parameter convention differs between the
+SGP4/TLE stack and the EGM2008 force model: SGP4 uses WGS-72
+($\mu = 398{,}600.8$~km$^3$/s$^2$, $R_{\oplus} = 6378.135$~km),
+whereas EGM2008 uses the more recent WGS-84 values
+($\mu = 398{,}600.4418$~km$^3$/s$^2$, $R_{\oplus} = 6378.137$~km).
+The fractional offset $\delta\mu / \mu \approx 1\times 10^{-6}$
+aliases into a semi-major-axis bias of similar order
+($\mathcal{O}(10)$~m at LEO) when the SGP4-derived state is
+re-interpreted as an EGM2008-osculating initial condition --- not
+load-bearing for the kilometre-scale errors characterised in this
+paper, but cited explicitly here so the constant mismatch does
+not look unacknowledged.
+
 \subsection{Frame and time conventions}
 \label{sec:methods-frame-time}
 
+TEME (True Equator, Mean Equinox of date) is the pseudo-inertial
+frame in which SGP4 evaluates its mean-element ephemeris. Unlike
+J2000 or ICRF, TEME's polar axis is the true equator of date and
+its origin in right ascension is the \emph{mean} equinox; the
+resulting frame is approximately equivalent to J2000 ECI for short
+propagation arcs but accumulates a few milliarcseconds per year of
+drift due to nutation neglect in the right-ascension reference.
+Two conventions of TEME appear in the literature --- the modern
+Vallado formulation, used here and implemented in the IAU SOFA /
+\texttt{erfa} stack, and an older STK ``true-of-date'' variant
+\citep[\S\,3.7]{vallado2013}; we adopt the Vallado/erfa convention,
+which is the community-canonical choice for open-source TLE
+tooling. GMAT's MJ2000Eq frame is the J2000 mean-equator /
+mean-equinox inertial frame --- equivalent to ``J2000 ECI'' in
+non-GMAT vocabulary --- and is the inertial frame the
+high-fidelity propagator integrates in.
+
 Initial states for the GMAT propagation are derived from the starting
-TLE by evaluating SGP4 at $\Delta t = 0$ in the True Equator, Mean
-Equinox (TEME) frame of date and rotating into the MJ2000 equatorial
-inertial frame used by GMAT. The TEME-to-MJ2000 rotation follows
+TLE by evaluating SGP4 at $\Delta t = 0$ in TEME and rotating into
+MJ2000Eq. The TEME-to-MJ2000Eq rotation follows
 Algorithm 24 of \citet{vallado2013}, composed from three primitives
 in the IAU SOFA / \texttt{erfa} library: the IAU 1976 precession
 matrix (\texttt{pmat76}), the IAU 1980 nutation matrix
@@ -520,6 +615,34 @@ SGP4 itself is evaluated through the \texttt{sgp4} Python
 implementation of \citet{rhodes_sgp4}, the canonical port of the
 Vallado open-source reference code, which uses the WGS-72 gravity
 constants that the TLE format was constructed against.
+
+\subsubsection{Dynamical-consistency caveat}
+\label{sec:methods-dynamical-consistency}
+
+The Cartesian state delivered by $\mathrm{SGP4}(\mathrm{TLE},\,
+\Delta t = 0)$ is \emph{not} an osculating Cartesian state in the
+sense an external high-fidelity propagator expects. SGP4 is an
+analytic averaged-element propagator built on the Brouwer
+mean-element formulation \citep[\S\,11.6]{vallado2013}: a TLE
+encodes mean Keplerian elements at epoch, and SGP4's analytic
+kernel \citep{hoots2004} unwraps those mean elements through
+short-period perturbation series to produce a Cartesian
+position--velocity pair. That pair is a pseudo-osculating
+intermediate, not the instantaneously osculating state of the
+underlying physical orbit. Numerically integrating it as if it
+were osculating --- as we do when feeding it to GMAT --- carries
+the SGP4 short-period kernel's intrinsic amplitude into the
+initial condition, bounded below by the short-period perturbation
+scale of order $\mathcal{O}(1)$~km at LEO. The mismatch is
+fundamental to the comparison this paper performs: the
+high-fidelity arm inherits an initial condition that lives in a
+different dynamical reference than the truth construction (which
+re-evaluates SGP4 at the matched ending TLE), so part of the
+hi-fid-vs-SGP4 gap reported in Section~\ref{sec:results} is the
+cost of leaving the SGP4 mean-element manifold rather than a
+deficiency of the integrator. This is one of the three mechanisms
+behind the H2 negative result discussed in
+Section~\ref{sec:discussion}.
 
 \subsection{Error metrics and solar context}
 \label{sec:methods-metrics}
@@ -586,7 +709,14 @@ re-rendering the PDF from a clean checkout does not require a local
 GMAT installation. Re-running the full sweep from scratch does
 require GMAT R2026a, the EGM2008 coefficient file installed through
 the project's installer script, and Space-Track credentials for the
-one-time TLE fetch.
+one-time TLE fetch. Exact versions of the load-bearing
+astrodynamics dependencies --- SOFA / \texttt{erfa} for the
+TEME-to-MJ2000Eq rotation, the \texttt{sgp4} Python implementation
+of \citet{rhodes_sgp4} for the SGP4 evaluation, and \texttt{astropy}
+for IERS-aware time conversion --- are pinned in
+\texttt{pyproject.toml} and the conda environment lockfile shipped
+in the repository, so the rotation chain and SGP4 numerical kernel
+are bit-identical across re-runs.
 
 \section{Results}
 \label{sec:results}
@@ -745,6 +875,21 @@ This is the sharpest form of the H2 negative result:
 high-fidelity propagation initialised from a public TLE is behind
 SGP4 at the operationally relevant 6~h horizon even after the
 floor is accounted for, not merely indistinguishable from it.
+
+The per-cell $(A,\,k)$ table summarised by
+Figure~\ref{fig:powerlaw-fits} and tabulated in
+Table~\ref{tab:powerlaw} can serve a complementary downstream use
+beyond the present comparison: as a benchmark target for the
+enhanced-propagator line of work surveyed in
+Section~\ref{sec:background} (SGP4-XP, differentiable SGP4, and
+ML-residual correctors). A future enhanced propagator measured on
+the same locked corpus and Δt buckets, with $(A,\,k)$ refitted
+under the same methodology, would yield a directly comparable
+per-cell pair. The atlas is in a form usable as a regression
+test by that work, independently of whether the conclusion
+reported here --- that high-fidelity dynamics initialised from
+public TLEs do not improve on SGP4 against next-TLE-derived truth
+--- survives propagator innovation.
 
 [TODO: complete §5 in issue \#7 --- practical implications for
 downstream TLE consumers, whether investing in high-fidelity OD is
