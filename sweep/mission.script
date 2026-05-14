@@ -55,7 +55,7 @@ GMAT FM.SRP = On;
 GMAT FM.GravityField.Earth.Degree = 70;
 GMAT FM.GravityField.Earth.Order = 70;
 GMAT FM.GravityField.Earth.PotentialFile = 'EGM2008.cof';
-GMAT FM.Drag.AtmosphereModel = MSISE90;
+GMAT FM.Drag.AtmosphereModel = NRLMSISE00;
 GMAT FM.ErrorControl = RSSStep;
 
 %----------------------------------------
