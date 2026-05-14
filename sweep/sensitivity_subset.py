@@ -29,9 +29,13 @@ Determinism. The default seed `20260513` and the default target size of
 1,000 are baked into the issue scope (#30); they should not be changed
 without coordinating with #28 and #31, which assume a fixed subset.
 
-Outputs land at `outputs/sensitivity_subset_pair_ids.txt` — one
+Outputs land at `src/static/sensitivity_subset_pair_ids.txt` — one
 `run_id` per line, ASCII, sorted ascending. Plain text rather than
 Parquet so the file diffs cleanly in PRs and reviewers can eyeball it.
+Lives under `src/static/` (not `outputs/`) because it is a derived
+corpus *input* consumed by downstream sensitivity sweeps, not a
+product of the main sweep — same shape as `maneuver_jumps.parquet`
+and `selection_stats.parquet`.
 """
 
 from __future__ import annotations
@@ -170,7 +174,7 @@ def parse_args() -> argparse.Namespace:
         "--out",
         type=Path,
         required=True,
-        help="Output text path (conventionally outputs/sensitivity_subset_pair_ids.txt)",
+        help="Output text path (conventionally src/static/sensitivity_subset_pair_ids.txt)",
     )
     parser.add_argument(
         "--target-size",

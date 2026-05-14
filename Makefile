@@ -20,7 +20,7 @@ help:
 	@echo "                           the 501-sat corpus → src/static/selection_stats.parquet"
 	@echo "                           (selection-effect appendix figure input)."
 	@echo "  build-sensitivity-subset -- 1,000-pair stratified subset of the corpus →"
-	@echo "                              outputs/sensitivity_subset_pair_ids.txt"
+	@echo "                              src/static/sensitivity_subset_pair_ids.txt"
 	@echo "                              (consumed by #28 CdA and #31 maneuver-threshold)."
 	@echo "  build        -- render PDF via showyourwork (uses Zenodo-cached outputs)"
 	@echo "  smoke        -- run an N=8 sweep against the cached corpus (requires GMAT)"
@@ -76,7 +76,7 @@ build-selection-stats:
 build-sensitivity-subset:
 	python -m sweep.sensitivity_subset \
 	    --tles src/static/tles_cache.parquet \
-	    --out outputs/sensitivity_subset_pair_ids.txt
+	    --out src/static/sensitivity_subset_pair_ids.txt
 
 build:
 	showyourwork build

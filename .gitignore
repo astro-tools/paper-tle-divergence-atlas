@@ -40,15 +40,8 @@ src/tex/figures/*
 !src/tex/figures/.gitkeep
 src/tex/_minted-*/
 
-# Sweep outputs (large; deposited on Zenodo).
-# Use `outputs/*` (not `outputs/`) so we can re-include specific small
-# artifacts below — a directory-style exclusion can't be reopened by a
-# per-file negation (see `man gitignore`).
-outputs/*
-# Exception: small, deterministic corpus subsets we commit so downstream
-# sensitivity studies (#28 CdA, #31 maneuver-threshold) don't each have
-# to regenerate the same 1k-pair sample.
-!outputs/sensitivity_subset_pair_ids.txt
+# Sweep outputs (large; deposited on Zenodo)
+outputs/
 
 # Sweep manifest from smoke/dev runs. The final sweep's manifest.jsonl gets
 # force-added (`git add -f`) when the production sweep is locked, per the
