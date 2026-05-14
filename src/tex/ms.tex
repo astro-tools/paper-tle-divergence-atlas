@@ -193,41 +193,59 @@ We quantify the floor empirically by repeatedly propagating
 $\mathrm{TLE}_{j-N}$ to $t_{j}$ with the same GMAT high-fidelity
 configuration the main sweep uses (Section~\ref{sec:methods-forcemodel})
 and comparing to $\mathrm{SGP4}(\mathrm{TLE}_{j},\,\Delta t = 0)$
-for $N \in \{1,\,2,\,3,\,6\}$ on the densest-sampled corpus
-satellite, a v1.5 in the 550~km shell with 131 TLEs over the
-analysis window (NORAD 53675; 369 arcs surviving the 100~m SMA-jump
-filter of Section~\ref{sec:methods-pairs}). At the shortest arc
-($N = 1$, median $\Delta t \approx 4.8$~h, $n = 112$), the median
-L$_{2}$ residual is $1.20$~km
-(IQR $0.53$--$3.06$~km); growth across larger $N$ is shown in
-Table~\ref{tab:truth-floor}. The 5-h diagnostic value already
-exceeds the SGP4 pooled median at 6~h reported in
+for $N \in \{1,\,2,\,3,\,6\}$. To capture inter-cohort variation
+rather than over-generalising from a single representative, the
+diagnostic runs the densest-sampled corpus satellite in each of the
+eight populated (altitude shell~$\times$~generation) cells of
+Table~\ref{tab:corpus} --- 122--131 TLEs per sat, 3{,}121 arcs in
+total after the 100~m SMA-jump maneuver filter of
+Section~\ref{sec:methods-pairs}. Per-cohort medians at the shortest
+arc ($N = 1$, $\Delta t \approx 4$--$5$~h) are listed in
+Table~\ref{tab:truth-floor}. Two features of the table carry the
+interpretation. First, every populated cohort sits in $0.81$--$1.37$~km
+at the 5~h scale; the floor is, to within a factor of two,
+\emph{cohort-independent} --- v2-mini is not measurably worse than
+v1.5, and altitude separates the cohorts only weakly. Second, the
+pooled $N = 1$ median of $1.11$~km (IQR $0.23$--$2.89$~km) already
+exceeds the SGP4 pooled median at $\Delta t = 6$~h reported in
 Section~\ref{sec:results}, which is the empirical statement of
 floor limitation: even with a strictly better propagator
 \emph{and} a strictly fresher starting TLE, the residual against
-the proxy truth cannot drop below $\mathcal{O}(1)$~km, because
-that floor is built into the two TLE-derived states it is
-constructed from. The 6~h headline reported below should be read
-accordingly --- as a measurement constrained by the precision of
-public TLE delivery, not by propagator skill.
+the proxy truth cannot drop below $\mathcal{O}(1)$~km regardless
+of cohort, because that floor is built into the two TLE-derived
+states it is constructed from. The 6~h headline reported below
+should be read accordingly --- as a measurement constrained by the
+precision of public TLE delivery, not by propagator skill, and
+constrained \emph{uniformly} across the corpus.
 
 \begin{table}[ht]
   \centering
-  \caption{Empirical truth-floor diagnostic on the densest-sampled
-  corpus satellite (NORAD 53675, v1.5, 550~km, 131 TLEs).
-  Each $N$ denotes the offset back from $\mathrm{TLE}_{j}$ used to
-  start the GMAT high-fidelity propagation; $|\Delta\mathbf{r}|$ is
-  measured against $\mathrm{SGP4}(\mathrm{TLE}_{j},\,\Delta t = 0)$.
-  All arcs survive the 100~m SMA-jump maneuver filter.}
+  \caption{Empirical truth-floor diagnostic, per (altitude shell
+  $\times$ generation) cohort. Each row is the densest-sampled
+  corpus satellite in that cell, swept across
+  $N \in \{1,\,2,\,3,\,6\}$ TLE offsets back from $\mathrm{TLE}_{j}$;
+  the reported $|\Delta\mathbf{r}|$ is measured against
+  $\mathrm{SGP4}(\mathrm{TLE}_{j},\,\Delta t = 0)$ at $t_{j}$. Only
+  the shortest-arc median is tabulated for compactness; larger $N$
+  trends are in the diagnostic JSON. All arcs survive the 100~m
+  SMA-jump maneuver filter. The 540~km~$\times$~v2-mini cell is empty
+  in the corpus (Table~\ref{tab:corpus}).}
   \label{tab:truth-floor}
-  \begin{tabular}{rrrrr}
+  \begin{tabular}{lllrrrrr}
     \toprule
-    $N$ & arcs & median $\Delta t$ (h) & median $|\Delta\mathbf{r}|$ (km) & IQR (km) \\
+    Shell (km) & Gen & NORAD & TLEs & arcs ($N\!=\!1$) & $\Delta t$ (h) & median $|\Delta\mathbf{r}|$ (km) & IQR (km) \\
     \midrule
-    1 & 112 &  4.8 & 1.20 & 0.53--3.06 \\
-    2 &  97 &  9.6 & 2.72 & 1.29--5.27 \\
-    3 &  89 & 15.9 & 4.09 & 1.89--8.31 \\
-    6 &  71 & 33.5 & 7.60 & 3.73--14.41 \\
+    540 & v1.0    & 48555 & 122 &  64 &  4.4 & 1.02 & 0.01--2.98 \\
+    540 & v1.5    & 49766 & 125 & 123 &  4.8 & 1.17 & 0.23--4.10 \\
+    540 & v2-mini & ---   & --- & --- &  --- & ---  & --- \\
+    550 & v1.0    & 48306 & 106 &  60 &  4.0 & 0.94 & 0.12--4.01 \\
+    550 & v1.5    & 53675 & 131 & 112 &  4.8 & 1.20 & 0.53--3.06 \\
+    550 & v2-mini & 65384 & 127 & 123 &  4.8 & 1.11 & 0.01--2.75 \\
+    560 & v1.0    & 48881 & 124 & 123 &  4.8 & 1.31 & 0.50--2.39 \\
+    560 & v1.5    & 56495 & 129 & 128 &  4.8 & 0.81 & 0.23--1.90 \\
+    560 & v2-mini & 63926 & 125 & 111 &  4.8 & 1.37 & 0.01--3.64 \\
+    \midrule
+    \multicolumn{4}{l}{\textit{Pooled across cohorts}} & 844 & --- & 1.11 & 0.23--2.89 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -653,10 +671,11 @@ Captions below are placeholders pending final Results lock.]
 
 A useful sanity check on the 6~h headline number is to compare it
 directly with the truth-floor diagnostic of
-Section~\ref{sec:background-truth-floor}. The diagnostic returns a
-median L$_{2}$ residual of $1.20$~km on a $\sim 5$~h short arc using
-the same high-fidelity force model and an alternate fresh starting
-TLE, whereas the SGP4 pooled median at $\Delta t = 6$~h reported in
+Section~\ref{sec:background-truth-floor}. Pooled across the eight
+cohort representatives, the diagnostic returns a median L$_{2}$
+residual of $1.11$~km on a $\sim 5$~h short arc (per-cohort medians
+$0.81$--$1.37$~km, Table~\ref{tab:truth-floor}), whereas the SGP4
+pooled median at $\Delta t = 6$~h reported in
 Section~\ref{sec:results} is below that value at $\sim 1$~km. Two
 TLE-derived states separated by one operator update interval
 \emph{cannot} agree better than the floor implied by their
