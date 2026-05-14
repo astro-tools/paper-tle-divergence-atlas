@@ -189,6 +189,30 @@ Section~\ref{sec:results} reports a pooled median observed error of
 $\sim 1$~km, the OD-residual floor is the same order as the signal
 itself.
 
+No operator publishes an internal OD-residual figure for Starlink.
+The three public quantifications closest to the question bracket
+it from different sides, none of them an exact match.
+\citet{lang2025} apply a third-party unscented batch filter to
+maneuvering Starlinks and recover 24-hour position predictions
+with RMS error below $3$~km. The commercial radar tracking service
+described in the \citet{leolabs_eoportal} survey reports state
+estimates better than $1$~km at time of estimation for
+$\sim 95\%$ of LEO objects (and better than $200$~m for
+$\sim 50\%$), without distinguishing Starlink from the broader
+population. SpaceX's own narrative submission to the FCC on
+positioning, navigation, and timing \citep{spacex_fcc_pnt}
+discusses terminal-segment metric-precision positioning but does
+not publish a satellite OD residual. None of these directly
+answers Eq.~\eqref{eq:error-budget}: \citet{lang2025} and
+\citet{leolabs_eoportal} characterise third-party OD pipelines
+that observe the constellation \emph{less} precisely than the
+operator does --- SpaceX has onboard GNSS on every satellite ---
+so the operator-internal residual at $t_{j}$ is plausibly tighter
+than the $\sim 1$~km outer bound those third-party pipelines
+place on it; and the FCC submission targets user-equipment
+positioning, not space-segment OD. We therefore measure the floor
+directly with the diagnostic below.
+
 We quantify the floor empirically by repeatedly propagating
 $\mathrm{TLE}_{j-N}$ to $t_{j}$ with the same GMAT high-fidelity
 configuration the main sweep uses (Section~\ref{sec:methods-forcemodel})
