@@ -1,4 +1,4 @@
-.PHONY: help env fetch-tles fetch-satcat fetch-sw install-egm2008 build-corpus build-maneuver-jumps build-sensitivity-subset build smoke sweep aggregate sweep-stats diagnostics figures clean
+.PHONY: help env fetch-tles fetch-satcat fetch-sw install-egm2008 build-corpus build-maneuver-jumps build-sensitivity-subset build smoke sweep aggregate sweep-stats diagnostics cda-sensitivity cda-sensitivity-table figures clean
 
 help:
 	@echo "Targets:"
@@ -30,6 +30,11 @@ help:
 	@echo "  sweep-stats  -- per-bucket / per-(shell,gen) median+IQR and manifest"
 	@echo "                  failure tally → outputs/sweep_stats.txt"
 	@echo "  diagnostics  -- render outputs/_diagnostic_sweep_scatter.png"
+	@echo "  cda-sensitivity -- run the v2-mini CdA ±20% sensitivity sub-sweep"
+	@echo "                     (~800 GMAT runs, ~2 h on 8 cores; requires GMAT)."
+	@echo "  cda-sensitivity-table -- emit src/tex/tables/tab_cda_sensitivity.tex"
+	@echo "                           and outputs/cda_sensitivity_summary.json from"
+	@echo "                           the three CdA frames."
 	@echo "  figures      -- regenerate figures from outputs/"
 	@echo "  clean        -- remove generated artifacts (PDF, figures, snakemake state)"
 	@echo ""
@@ -116,6 +121,24 @@ diagnostics:
 	python src/scripts/_diagnostic_sweep_scatter.py \
 	    --all-runs outputs/all_runs.parquet \
 	    --out outputs/_diagnostic_sweep_scatter.png
+
+cda-sensitivity:
+	python -m sweep.cda_sensitivity \
+	    --mission sweep/mission.script \
+	    --tles src/static/tles_cache.parquet \
+	    --subset-ids src/static/sensitivity_subset_pair_ids.txt \
+	    --sw-cache src/static/sw_cache.parquet \
+	    --output-root outputs/_cda_sensitivity \
+	    --output-dir outputs
+
+cda-sensitivity-table:
+	python -m sweep.cda_sensitivity_table \
+	    --all-runs outputs/all_runs.parquet \
+	    --cda-low outputs/all_runs_cda_low.parquet \
+	    --cda-high outputs/all_runs_cda_high.parquet \
+	    --subset-ids src/static/sensitivity_subset_pair_ids.txt \
+	    --table-out src/tex/tables/tab_cda_sensitivity.tex \
+	    --summary-out outputs/cda_sensitivity_summary.json
 
 figures:
 	snakemake --cores 1 src/tex/figures
