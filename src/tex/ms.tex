@@ -267,7 +267,7 @@ constrained \emph{uniformly} across the corpus.
     540 & v1.5    & 49766 & 125 & 123 &  4.8 & 1.17 & 0.23--4.10 \\
     540 & v2-mini & ---   & --- & --- &  --- & ---  & --- \\
     550 & v1.0    & 48306 & 106 &  60 &  4.0 & 0.94 & 0.12--4.01 \\
-    550 & v1.5    & 53675 & 131 & 112 &  4.8 & 1.20 & 0.53--3.06 \\
+    550 & v1.5    & 53675 & 131 & 112 &  4.8 & 1.19 & 0.53--3.05 \\
     550 & v2-mini & 65384 & 127 & 123 &  4.8 & 1.11 & 0.01--2.75 \\
     560 & v1.0    & 48881 & 124 & 123 &  4.8 & 1.31 & 0.50--2.39 \\
     560 & v1.5    & 56495 & 129 & 128 &  4.8 & 0.81 & 0.23--1.90 \\
@@ -882,9 +882,9 @@ The floor argument does \emph{not} carry over to the pair-by-pair
 propagator skill comparison of Figure~\ref{fig:propagator-scatter},
 and the empirical win-fraction data clarifies why. At
 $\Delta t = 6$~h, $\mathrm{SGP4}$ wins on
-$\lVert\Delta\mathbf{r}\rVert$ for $68.8\%$ of the $5{,}421$ pairs
-in the corpus ($n_{\mathrm{hifi-wins}}/n = 31.2\%$); by
-$\Delta t = 7$~d, the SGP4-wins fraction climbs to $82.1\%$ of
+$\lVert\Delta\mathbf{r}\rVert$ for $68.6\%$ of the $5{,}421$ pairs
+in the corpus ($n_{\mathrm{hifi-wins}}/n = 31.4\%$); by
+$\Delta t = 7$~d, the SGP4-wins fraction climbs to $81.4\%$ of
 $3{,}831$ pairs. A naive expectation that floor dominance would
 collapse the 6~h paired distribution onto the $y = x$ diagonal is
 wrong: both arms inherit the \emph{same}
@@ -896,9 +896,9 @@ $\lVert\Delta\mathbf{r}_{\mathrm{SGP4}}\rVert -
 even when they dominate each absolute norm. The floor inflates the
 $y$-axis and $x$-axis of Figure~\ref{fig:propagator-scatter}
 together but does not bias the win count, and the empirical
-$31.2\%$ at 6~h is the genuine SGP4-vs-hi-fid skill differential
+$31.4\%$ at 6~h is the genuine SGP4-vs-hi-fid skill differential
 on the floor-saturated horizon --- a 19-percentage-point shortfall
-of hi-fid below the null, climbing to a 32-pp shortfall by 7~d.
+of hi-fid below the null, climbing to a 31-pp shortfall by 7~d.
 This is the sharpest form of the H2 negative result:
 high-fidelity propagation initialised from a public TLE is behind
 SGP4 at the operationally relevant 6~h horizon even after the
