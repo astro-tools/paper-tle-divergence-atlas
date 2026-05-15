@@ -693,11 +693,12 @@ play no role in the integration itself, which reads its own
 space-weather inputs through GMAT's bundled NRLMSISE-00
 implementation (Section~\ref{sec:methods-forcemodel}).
 
+{\sloppy
 GMAT R2026a's NRLMSISE-00 driver reads its space-weather inputs
-from the bundled CSSI file \texttt{SpaceWeather-v1.2.txt}, which
+from the bundled CSSI file SpaceWeather-v1.2.txt, which
 in the shipped release was last refreshed 2025-03-21. The corpus
 epochs (April~2026) fall ${\sim}13$ months past the file's
-observed-data horizon, well inside the MONTHLY\_PREDICTED section,
+observed-data horizon, well inside its monthly-predicted section,
 so the integrator sees a single Schatten-style monthly anchor for
 the entire window: 81-day-centred $F_{10.7} = 152.6$~sfu and
 monthly $\langle\!Ap\rangle = 16$ for April~2026. Over the same
@@ -717,7 +718,8 @@ CelesTrak file or wait for the next R2026a SW-bundle refresh; the
 qualitative finding that the high-fidelity arm sits above SGP4 at
 every $\Delta t$ bucket is robust to this offset because both arms
 inherit the at-epoch operator OD residual that dominates the
-short-Δt budget.
+short-$\Delta t$ budget.
+\par}
 
 \subsection{Reproducibility surface}
 \label{sec:methods-reproducibility}
@@ -911,7 +913,7 @@ beyond the present comparison: as a benchmark target for the
 enhanced-propagator line of work surveyed in
 Section~\ref{sec:background} (SGP4-XP, differentiable SGP4, and
 ML-residual correctors). A future enhanced propagator measured on
-the same locked corpus and Δt buckets, with $(A,\,k)$ refitted
+the same locked corpus and $\Delta t$ buckets, with $(A,\,k)$ refitted
 under the same methodology, would yield a directly comparable
 per-cell pair. The atlas is in a form usable as a regression
 test by that work, independently of whether the conclusion
