@@ -20,6 +20,7 @@ from sweep.tle_pipeline import (
     build_pairs,
     detect_maneuver_epochs,
     filter_maneuvers,
+    rejection_counts,
     sample_sats,
     sma_km_from_mean_motion,
     subsample_starting_tles,
@@ -282,6 +283,78 @@ class TestBuildCorpus:
                 assert not (p["epoch_i"] < pd.Timestamp("2026-04-05T00:00:00Z") <= p["epoch_j"]), (
                     f"sat-2 pair {p['epoch_i']} → {p['epoch_j']} spans the maneuver"
                 )
+
+
+class TestRejectionCounts:
+    """The Appendix A "fleet quietness" summary at the baseline threshold.
+
+    The synthetic fleets mirror those in `TestBuildCorpus`. The contract
+    is: `n_candidates - n_survivors == n_rejected`, and the survivor
+    count must match what `build_corpus` would produce at the same
+    threshold/seed/per-shell — no silent re-computation drift.
+    """
+
+    def _quiet_fleet(self, sats_per_shell: int = 3, days: int = 10) -> pd.DataFrame:
+        rows: list[dict] = []
+        norad = 1
+        for shell_line2 in (LINE2_540KM, LINE2_550KM, LINE2_560KM):
+            for _ in range(sats_per_shell):
+                rows.extend(_daily_tles(norad, days=days, line2=shell_line2))
+                norad += 1
+        return pd.DataFrame(rows)
+
+    def test_quiet_fleet_rejects_zero(self) -> None:
+        tles = self._quiet_fleet()
+        counts = rejection_counts(tles, n_per_shell=10)
+        assert int(counts["n_rejected"].sum()) == 0
+        # Every populated cell has survivors == candidates.
+        assert (counts["n_survivors"] == counts["n_candidates"]).all()
+        assert set(counts["alt_shell"].unique()) <= {"540", "550", "560"}
+        # Δt buckets in the count table are a subset of the defaults; the
+        # synthetic 10-day window cannot generate a 7-day pair from every
+        # starting epoch but the +1d / +3d buckets must populate.
+        assert set(counts["target_dt_sec"].unique()) <= set(DEFAULT_TARGET_DTS_SEC)
+        assert 86_400 in counts["target_dt_sec"].to_numpy()
+
+    def test_columns_and_invariant(self) -> None:
+        counts = rejection_counts(self._quiet_fleet(), n_per_shell=10)
+        assert list(counts.columns) == [
+            "alt_shell",
+            "target_dt_sec",
+            "n_candidates",
+            "n_survivors",
+            "n_rejected",
+        ]
+        assert (counts["n_candidates"] >= counts["n_survivors"]).all()
+        assert (counts["n_rejected"] == counts["n_candidates"] - counts["n_survivors"]).all()
+
+    def test_survivor_total_matches_build_corpus(self) -> None:
+        tles = self._quiet_fleet()
+        counts = rejection_counts(tles, n_per_shell=10)
+        corpus = build_corpus(tles, n_per_shell=10)
+        # Cross-check against the canonical pipeline at the same seed.
+        assert int(counts["n_survivors"].sum()) == len(corpus)
+
+    def test_maneuvering_sat_contributes_rejections(self) -> None:
+        # One quiet 550 km sat plus one sat that jumps 550 → 540 mid-window.
+        rows = _daily_tles(1, days=10, line2=LINE2_550KM)
+        rows.extend(_daily_tles(2, days=4, line2=LINE2_550KM))
+        rows.extend(_daily_tles(2, days=6, line2=LINE2_540KM, start="2026-04-05T00:00:00Z"))
+        counts = rejection_counts(pd.DataFrame(rows), n_per_shell=10)
+        assert int(counts["n_rejected"].sum()) > 0
+        # The maneuvering sat ends in the 540 shell (median SMA biases lower);
+        # its rejections appear under its assigned shell.
+        non_zero = counts[counts["n_rejected"] > 0]
+        assert not non_zero.empty
+        assert set(non_zero["alt_shell"].unique()) <= {"540", "550"}
+
+    def test_stricter_threshold_rejects_more(self) -> None:
+        # 1 m threshold catches every SMA wiggle in the quiet fleet as a
+        # "maneuver" while 100 m catches none. Strict ≥ permissive must hold.
+        tles = self._quiet_fleet()
+        strict = rejection_counts(tles, sma_jump_threshold_km=1e-6, n_per_shell=10)
+        permissive = rejection_counts(tles, n_per_shell=10)
+        assert int(strict["n_rejected"].sum()) >= int(permissive["n_rejected"].sum())
 
 
 class TestDefaults:
