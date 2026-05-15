@@ -490,7 +490,7 @@ launch-batch level across the Starlink generations in our corpus.
 Generation (v1.0 / v1.5 / v2-mini) is classified from the same catalog's
 \texttt{PLName} field.
 
-\subsubsection{Attitude regime and drag-area choice}
+\subsection{Attitude regime and drag-area choice}
 \label{sec:methods-attitude}
 
 A Starlink satellite at its operational altitude maintains a
@@ -517,10 +517,7 @@ removes from the corpus before any pair reaches the sweep.
   effective area at $C_D = 2.2$ is the Baruah value divided by $2.2$.
   The v2-mini row has no published ballistic-coefficient analysis and
   is scaled from the v1.x shark-fin value by the bus-size ratio
-  reported in \citet{krebs_starlink_v2mini}; this is the largest
-  remaining modelling assumption in the spacecraft-properties layer
-  and is the subject of the $\pm 20\%$ sensitivity reported in
-  Appendix~\ref{app:cda-sensitivity}.}
+  reported in \citet{krebs_starlink_v2mini}.}
   \label{tab:drag-areas}
   \begin{tabular}{lrrr}
     \toprule
@@ -989,18 +986,24 @@ independent ballistic-coefficient analysis. We probe its impact
 empirically by re-running the v2-mini slice of the stratified
 1{,}000-pair sensitivity subset at $C_D \cdot A$ scaling factors of
 $0.8$ and $1.2$, reported in Appendix~\ref{app:cda-sensitivity}.
-The pooled median $|\Delta\mathbf{r}|_{\mathrm{hifi}}$ across the
-399 v2-mini pairs in the subset shifts by $-8.9\%$ at $0.8\times$
-and $+11.0\%$ at $1.2\times$ relative to a baseline of $19.5$~km;
-the per-cell shift is direction-consistent in every populated cell
-(more drag area $\Rightarrow$ larger error, the expected sign) and
-peaks at $\pm 17\%$ in the 550~km $\times$ 7~d cell. These shifts
-are an order of magnitude smaller than the SGP4-vs-hi-fid gap
-they sit inside --- the same 7~d horizon shows hi-fid pooled
-median $130.9$~km against SGP4 pooled median $38.5$~km, a
-$+240\%$ relative gap that no $\pm 20\%$ $C_D \cdot A$ correction
-to the hi-fid arm closes. The H2 finding is therefore robust to
-in-attitude $C_D \cdot A$ uncertainty on the v2-mini cohort.
+The test admits two predictable outcomes: hi-fid still loses across
+every v2-mini cell at both CdA extremes (the H2-robust outcome), or
+hi-fid wins in the 7~d / 550--560~km cohort where
+Figure~\ref{fig:propagator-scatter} already shows a v2-mini-favouring
+wedge (which would sharpen that positive finding rather than the
+headline H2 finding). The empirical result is the first: the pooled
+median $|\Delta\mathbf{r}|_{\mathrm{hifi}}$ across the 399 v2-mini
+pairs in the subset shifts by $-8.9\%$ at $0.8\times$ and $+11.0\%$
+at $1.2\times$ relative to a baseline of $19.5$~km, the per-cell
+shift is direction-consistent in every populated cell (more drag
+area $\Rightarrow$ larger error, the expected sign) and peaks at
+$\pm 17\%$ in the 550~km $\times$ 7~d cell, and crucially at the
+favourable $0.8\times$ factor hi-fid still sits $\sim 16$--$18\%$
+above SGP4 in the two most-affected v2-mini cells
+($550$~km and $560$~km at $7$~d, the same cells hosting the
+Figure~\ref{fig:propagator-scatter} wedge). The H2 negative result
+is therefore robust to in-attitude $C_D \cdot A$ uncertainty rather
+than sharpened by it on the v2-mini cohort.
 
 The asymmetry is mechanical: a systematic $C_D \cdot A$ bias feeds
 directly into the high-fidelity drag acceleration through the
@@ -1012,11 +1015,11 @@ high-fidelity arm is exposed to whatever residual error the
 modeller's prior on $C_D \cdot A$ leaves on the table. A $20\%$
 improvement in $C_D \cdot A$ knowledge --- roughly what an
 operator with internal mass-properties knowledge would gain over
-a public-data modeller --- moves the hi-fid pooled median at
-$\Delta t = 7$~d by about $17$ percentage points, closing
-$\sim 7\%$ of the SGP4-vs-hi-fid percentage gap at that horizon;
-the remaining $\sim 93\%$ lives in the at-epoch operator OD
-residual and the analytic-vs-osculating dynamical-consistency gap
+a public-data modeller --- shifts the hi-fid pooled median at
+$\Delta t = 7$~d by about $17\%$, which still leaves hi-fid
+above SGP4 in every v2-mini cell of the corpus; the residual gap
+lives in the at-epoch operator OD residual and the
+analytic-vs-osculating dynamical-consistency gap
 (Section~\ref{sec:methods-dynamical-consistency}), neither of
 which any public-TLE consumer can reduce by force-model upgrades
 alone.
