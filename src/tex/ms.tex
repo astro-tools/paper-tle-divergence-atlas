@@ -490,18 +490,64 @@ launch-batch level across the Starlink generations in our corpus.
 Generation (v1.0 / v1.5 / v2-mini) is classified from the same catalog's
 \texttt{PLName} field.
 
-Attitude-averaged effective drag cross-sections are anchored to
-\citet{baruah2024}, whose analysis of the February 2022 Starlink loss
-event uses ram areas of 1.00\,m$^2$ (collision-avoidance "open book"
-attitude) and 4.48\,m$^2$ (operational "shark fin" attitude) at $C_D = 1$
-for the v1.5 (Group 4) satellites involved. We adopt the shark-fin value
-since station-keeping dominates the duty cycle, rescaled to our
-$C_D = 2.2$ convention so $C_D \cdot A$ matches: 2.0\,m$^2$ for v1.x.
-For v2-mini, where no equivalent ballistic-coefficient analysis has been
-published, we scale by the bus-size ratio reported in
-\citet{krebs_starlink_v2mini}, yielding 4.5\,m$^2$ at $C_D = 2.2$; this
-is the largest remaining modelling assumption in the spacecraft-properties
-layer and is revisited in Section~\ref{sec:discussion}.
+\subsubsection{Attitude regime and drag-area choice}
+\label{sec:methods-attitude}
+
+A Starlink satellite at its operational altitude maintains a
+``shark-fin'' attitude --- solar arrays held edge-on to the ram
+direction and phased-array antennas pointing toward nadir --- as the
+station-keeping configuration. A high-drag ``open-book'' attitude is
+engaged only during autonomous collision-avoidance maneuvers and
+controlled de-orbit. SpaceX's most recent semi-annual constellation
+status report \citep{spacex_fcc_semiannual_2024} attributes an average
+of $14$ thruster firings per satellite over the six-month window
+1~December 2023 through 31~May 2024 to autonomous collision
+avoidance, against continuous on-station thrust for station-keeping
+\citep{lang2025}; the open-book residence fraction is therefore small,
+event-driven, and concentrated on intervals that the maneuver filter
+(Section~\ref{sec:methods-pairs}, Appendix~\ref{app:maneuver-filter})
+removes from the corpus before any pair reaches the sweep.
+
+\begin{table}[ht]
+  \centering
+  \caption{Per-attitude effective drag areas at the two $C_D$
+  conventions, with the per-generation values used in the main sweep
+  in the bottom block. Baruah ram areas are quoted at $C_D = 1$; the
+  sweep uses the free-molecular-flow $C_D = 2.2$ convention, so the
+  effective area at $C_D = 2.2$ is the Baruah value divided by $2.2$.
+  The v2-mini row has no published ballistic-coefficient analysis and
+  is scaled from the v1.x shark-fin value by the bus-size ratio
+  reported in \citet{krebs_starlink_v2mini}; this is the largest
+  remaining modelling assumption in the spacecraft-properties layer
+  and is the subject of the $\pm 20\%$ sensitivity reported in
+  Appendix~\ref{app:cda-sensitivity}.}
+  \label{tab:drag-areas}
+  \begin{tabular}{lrrr}
+    \toprule
+                                       & $C_D\!=\!1$ & $C_D\!=\!2.2$ & Ratio vs.\\
+    Attitude / configuration           & area (m$^2$) & area (m$^2$) & open-book \\
+    \midrule
+    Open-book (CAM / de-orbit)\,\citep{baruah2024} & 1.00 & 0.45 & 1.00$\times$ \\
+    Shark-fin (operational)\,\citep{baruah2024}    & 4.48 & 2.04 & 4.48$\times$ \\
+    \midrule
+    v1.0 / v1.5 (sweep, shark-fin)                 & 4.4  & 2.0  & 4.40$\times$ \\
+    v2-mini (sweep, shark-fin $\times$ bus-size)   & 9.9  & 4.5  & 9.90$\times$ \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+We adopt the shark-fin value as the duty-cycle-representative drag
+area: $2.0\,$m$^2$ at $C_D = 2.2$ for v1.0 and v1.5 (matching
+Baruah's $4.48\,$m$^2$ at $C_D = 1$ to within the rounding in
+Table~\ref{tab:drag-areas}), and $4.5\,$m$^2$ at $C_D = 2.2$ for
+v2-mini (scaled from the v1.x shark-fin value by a factor of $2.25$
+to reflect the larger v2-mini bus). The full attitude swing from
+shark-fin to open-book is a factor of $4.48\times$ change in
+$C_D \cdot A$, which is well outside the $\pm 20\%$ uncertainty range
+explored in Appendix~\ref{app:cda-sensitivity}; the sensitivity test
+is calibrated to bound the bus-scaling and mass-estimate uncertainty
+within the operational attitude, not to span the attitude swing
+itself (which is excluded from the corpus by construction).
 
 \subsection{Force model and integrator}
 \label{sec:methods-forcemodel}
@@ -933,6 +979,48 @@ systems use JB2008 \citep{bowman2008}; GMAT~R2026a does not bundle
 it, so a JB2008 comparison would require a plugin and is left to a
 follow-up alongside an NRLMSIS~2.1 swap.
 
+A second residual lever, separately tested, is the per-pair
+drag-area $C_D \cdot A$ override that feeds the high-fidelity
+integrator. The v2-mini ram area is the largest single modelling
+assumption in the spacecraft-properties layer
+(Section~\ref{sec:methods-attitude}), being scaled from Baruah's
+v1.x shark-fin anchor by a bus-size argument rather than from an
+independent ballistic-coefficient analysis. We probe its impact
+empirically by re-running the v2-mini slice of the stratified
+1{,}000-pair sensitivity subset at $C_D \cdot A$ scaling factors of
+$0.8$ and $1.2$, reported in Appendix~\ref{app:cda-sensitivity}.
+The pooled median $|\Delta\mathbf{r}|_{\mathrm{hifi}}$ across the
+399 v2-mini pairs in the subset shifts by $-8.9\%$ at $0.8\times$
+and $+11.0\%$ at $1.2\times$ relative to a baseline of $19.5$~km;
+the per-cell shift is direction-consistent in every populated cell
+(more drag area $\Rightarrow$ larger error, the expected sign) and
+peaks at $\pm 17\%$ in the 550~km $\times$ 7~d cell. These shifts
+are an order of magnitude smaller than the SGP4-vs-hi-fid gap
+they sit inside --- the same 7~d horizon shows hi-fid pooled
+median $130.9$~km against SGP4 pooled median $38.5$~km, a
+$+240\%$ relative gap that no $\pm 20\%$ $C_D \cdot A$ correction
+to the hi-fid arm closes. The H2 finding is therefore robust to
+in-attitude $C_D \cdot A$ uncertainty on the v2-mini cohort.
+
+The asymmetry is mechanical: a systematic $C_D \cdot A$ bias feeds
+directly into the high-fidelity drag acceleration through the
+$\rho\,C_D\,A$ product, whereas SGP4 absorbs the equivalent bias
+into the operator-fitted $B^{\!\star}$ at epoch
+(Section~\ref{sec:background}); the SGP4 arm is therefore
+calibrated against the data the user has access to, while the
+high-fidelity arm is exposed to whatever residual error the
+modeller's prior on $C_D \cdot A$ leaves on the table. A $20\%$
+improvement in $C_D \cdot A$ knowledge --- roughly what an
+operator with internal mass-properties knowledge would gain over
+a public-data modeller --- moves the hi-fid pooled median at
+$\Delta t = 7$~d by about $17$ percentage points, closing
+$\sim 7\%$ of the SGP4-vs-hi-fid percentage gap at that horizon;
+the remaining $\sim 93\%$ lives in the at-epoch operator OD
+residual and the analytic-vs-osculating dynamical-consistency gap
+(Section~\ref{sec:methods-dynamical-consistency}), neither of
+which any public-TLE consumer can reduce by force-model upgrades
+alone.
+
 [TODO: complete §5 in issue \#7 --- practical implications for
 downstream TLE consumers, whether investing in high-fidelity OD is
 justified for public-TLE workflows, the full set of limitations.]
@@ -965,6 +1053,62 @@ cache, with the 100\,m threshold marked.
   \label{fig:maneuver-filter}
   \script{fig_maneuver_filter.py}
 \end{figure}
+
+\section{Drag-area sensitivity (v2-mini)}
+\label{app:cda-sensitivity}
+
+Section~\ref{sec:methods-attitude} adopts the shark-fin attitude as
+the duty-cycle-representative drag mode, anchored to
+\citet{baruah2024} for v1.x and bus-scaled for v2-mini --- the
+latter being the largest unconstrained modelling assumption in the
+spacecraft-properties layer. We probe its impact on the H2 result
+by re-running the v2-mini slice of the stratified 1{,}000-pair
+sensitivity subset (Section~\ref{sec:methods-pairs}) at $C_D \cdot
+A$ scaling factors of $0.8$ and $1.2$, holding every other input
+(initial state, dry mass, $C_D$, SRP area, atmosphere model,
+integrator settings, space weather) constant. The baseline at
+factor $1.0$ is the same v2-mini slice of the main-sweep aggregate
+\texttt{outputs/all\_runs.parquet}; the two off-baseline frames are
+\texttt{outputs/all\_runs\_cda\_low.parquet} and
+\texttt{outputs/all\_runs\_cda\_high.parquet} respectively, produced
+by the \texttt{sweep.cda\_sensitivity} driver
+(\texttt{make cda-sensitivity}).
+
+\begin{table}[ht]
+  \centering
+  \caption{Median high-fidelity position error
+  $|\Delta\mathbf{r}|_{\mathrm{hifi}}$ for the v2-mini cohort by
+  altitude shell and $\Delta t$ bucket, at the three $C_D \cdot A$
+  scaling factors $\{0.8,\,1.0,\,1.2\}$ relative to the
+  Section~\ref{sec:methods-attitude} baseline.
+  The $0.8\times$ and $1.2\times$ columns report the median expressed as a
+  relative shift versus the baseline. The 540~km shell is absent because
+  the corpus has no v2-mini satellites at that altitude
+  (Table~\ref{tab:corpus}).}
+  \label{tab:cda-sensitivity}
+  \input{tables/tab_cda_sensitivity.tex}
+\end{table}
+
+Across the eight populated $(\mathrm{shell},\,\Delta t)$ cells the
+$\pm 20\%$ $C_D \cdot A$ perturbation shifts the median
+$|\Delta\mathbf{r}|_{\mathrm{hifi}}$ by between $\pm 1.4\%$ (at
+$\Delta t = 6$~h, where the OD-residual floor dominates) and
+$\pm 17.1\%$ (at $\Delta t = 7$~d, where drag has integrated long
+enough for the $C_D \cdot A$ bias to express itself); every cell
+moves in the expected direction (larger drag area
+$\Rightarrow$ larger hi-fid error). Pooled across cells, the median
+shifts $-8.9\%$ at factor $0.8$ and $+11.0\%$ at factor $1.2$. The
+maximum absolute shift sits well inside the SGP4-vs-hi-fid gap
+quantified in Section~\ref{sec:discussion}
+($+240\%$ at the same $7$~d horizon), so the H2 negative result
+survives intact under realistic in-attitude $C_D \cdot A$
+uncertainty on the v2-mini cohort. The increasing shift magnitude
+with $\Delta t$ is the integrated-drag signature expected on
+physical grounds: at short horizons the OD-residual floor masks
+the drag perturbation; at longer horizons the perturbation
+accumulates and the SGP4 arm absorbs the equivalent bias into its
+operator-fitted $B^{\!\star}$, while the hi-fid arm carries it as
+a propagated error.
 
 \section{Pair-matching selection-effect diagnostic}
 \label{app:selection-effect}
