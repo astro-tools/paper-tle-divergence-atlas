@@ -1,4 +1,4 @@
-.PHONY: help env fetch-tles fetch-satcat fetch-sw install-egm2008 build-corpus build-maneuver-jumps build smoke sweep aggregate sweep-stats diagnostics figures clean
+.PHONY: help env fetch-tles fetch-satcat fetch-sw install-egm2008 build-corpus build-maneuver-jumps build-sensitivity-subset build smoke sweep aggregate sweep-stats diagnostics figures clean
 
 help:
 	@echo "Targets:"
@@ -19,6 +19,9 @@ help:
 	@echo "  build-selection-stats -- inter-TLE intervals + per-sat longest-gap series for"
 	@echo "                           the 501-sat corpus → src/static/selection_stats.parquet"
 	@echo "                           (selection-effect appendix figure input)."
+	@echo "  build-sensitivity-subset -- 1,000-pair stratified subset of the corpus →"
+	@echo "                              src/static/sensitivity_subset_pair_ids.txt"
+	@echo "                              (consumed by #28 CdA and #31 maneuver-threshold)."
 	@echo "  build        -- render PDF via showyourwork (uses Zenodo-cached outputs)"
 	@echo "  smoke        -- run an N=8 sweep against the cached corpus (requires GMAT)"
 	@echo "  sweep        -- run the gmat-sweep locally (requires GMAT; ~10 h on 8 cores)"
@@ -69,6 +72,11 @@ build-selection-stats:
 	    --raw src/data/tles_raw.parquet \
 	    --cache src/static/tles_cache.parquet \
 	    --out src/static/selection_stats.parquet
+
+build-sensitivity-subset:
+	python -m sweep.sensitivity_subset \
+	    --tles src/static/tles_cache.parquet \
+	    --out src/static/sensitivity_subset_pair_ids.txt
 
 build:
 	showyourwork build

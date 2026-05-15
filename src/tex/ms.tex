@@ -267,7 +267,7 @@ constrained \emph{uniformly} across the corpus.
     540 & v1.5    & 49766 & 125 & 123 &  4.8 & 1.17 & 0.23--4.10 \\
     540 & v2-mini & ---   & --- & --- &  --- & ---  & --- \\
     550 & v1.0    & 48306 & 106 &  60 &  4.0 & 0.94 & 0.12--4.01 \\
-    550 & v1.5    & 53675 & 131 & 112 &  4.8 & 1.20 & 0.53--3.06 \\
+    550 & v1.5    & 53675 & 131 & 112 &  4.8 & 1.19 & 0.53--3.05 \\
     550 & v2-mini & 65384 & 127 & 123 &  4.8 & 1.11 & 0.01--2.75 \\
     560 & v1.0    & 48881 & 124 & 123 &  4.8 & 1.31 & 0.50--2.39 \\
     560 & v1.5    & 56495 & 129 & 128 &  4.8 & 0.81 & 0.23--1.90 \\
@@ -533,7 +533,7 @@ sequence.
     Gravity field                & EGM2008, degree~$70$, order~$70$   & \citet{pavlis2012} \\
     Third bodies                 & Sun, Moon (point masses)           & --- \\
     Solar radiation pressure     & Enabled, conical Earth shadow      & GMAT R2026a default \\
-    Atmospheric drag             & MSISE-90                           & \citet{hedin1991} \\
+    Atmospheric drag             & NRLMSISE-00                        & \citet{picone2002} \\
     \midrule
     Integrator                   & Runge--Kutta $8(9)$                & \citet{verner1978} \\
     Accuracy tolerance           & $10^{-12}$~km                       & --- \\
@@ -550,12 +550,13 @@ coefficient file produced by parsing the NGA flat-text
 \texttt{.cof} format; truncation at degree $70$ reproduces the
 geopotential at LEO altitudes to sub-millimetre precision over
 multi-day arcs against the full $2160\!\times\!2160$ expansion
-\citep{pavlis2012}. Atmospheric drag uses GMAT's bundled MSISE-90
-implementation \citep{hedin1991}, which consumes its own internal
-space-weather inputs --- the F10.7 and Ap values reported per
-output row in Section~\ref{sec:methods-metrics} are an independent
-analysis annotation joined onto each row at post-processing time and
-do not enter the integrator. The $8(9)$-order Runge--Kutta scheme
+\citep{pavlis2012}. Atmospheric drag uses GMAT's bundled
+NRLMSISE-00 implementation \citep{picone2002}, the SSA community
+standard for thermospheric density at LEO altitudes; it consumes its
+own internal space-weather inputs --- the F10.7 and Ap values
+reported per output row in Section~\ref{sec:methods-metrics} are an
+independent analysis annotation joined onto each row at
+post-processing time and do not enter the integrator. The $8(9)$-order Runge--Kutta scheme
 with embedded error estimator \citep{verner1978} held the configured
 tolerance across the longest seven-day arcs in the corpus with no
 observed integration failures (manifest tally: 24{,}641
@@ -689,8 +690,36 @@ These two columns are post-processing analysis annotations used only
 by the H3 regression of the per-satellite SGP4 staleness coefficient
 against solar activity (Figure~\ref{fig:solar-modulation}); they
 play no role in the integration itself, which reads its own
-space-weather inputs through GMAT's bundled MSISE-90 implementation
-(Section~\ref{sec:methods-forcemodel}).
+space-weather inputs through GMAT's bundled NRLMSISE-00
+implementation (Section~\ref{sec:methods-forcemodel}).
+
+{\sloppy
+GMAT R2026a's NRLMSISE-00 driver reads its space-weather inputs
+from the bundled CSSI file SpaceWeather-v1.2.txt, which
+in the shipped release was last refreshed 2025-03-21. The corpus
+epochs (April~2026) fall ${\sim}13$ months past the file's
+observed-data horizon, well inside its monthly-predicted section,
+so the integrator sees a single Schatten-style monthly anchor for
+the entire window: 81-day-centred $F_{10.7} = 152.6$~sfu and
+monthly $\langle\!Ap\rangle = 16$ for April~2026. Over the same
+window the CelesTrak observed cache used for the per-row analysis
+annotation reports an 81-day-centred $F_{10.7}$ band of
+$123.9$--$126.5$~sfu (max divergence ${\sim}28$~sfu against the
+GMAT monthly anchor) and a daily $Ap$ band of $2$--$46$ (max
+divergence $30$~Ap-units against the monthly constant; cache mean
+$12.1$). The integrator's drag accelerations are therefore biased
+high by the monthly-prediction overestimate of solar activity --- a
+common-mode bias on the high-fidelity arm, since SGP4 does not see
+these inputs, and one that propagates into the $\Delta r_{hifi}$
+column of the per-run parquet. We flag this as a methodological
+limitation in the H3 discussion (Section~\ref{sec:discussion}) and
+note that a future re-run can either point GMAT at the live
+CelesTrak file or wait for the next R2026a SW-bundle refresh; the
+qualitative finding that the high-fidelity arm sits above SGP4 at
+every $\Delta t$ bucket is robust to this offset because both arms
+inherit the at-epoch operator OD residual that dominates the
+short-$\Delta t$ budget.
+\par}
 
 \subsection{Reproducibility surface}
 \label{sec:methods-reproducibility}
@@ -855,9 +884,9 @@ The floor argument does \emph{not} carry over to the pair-by-pair
 propagator skill comparison of Figure~\ref{fig:propagator-scatter},
 and the empirical win-fraction data clarifies why. At
 $\Delta t = 6$~h, $\mathrm{SGP4}$ wins on
-$\lVert\Delta\mathbf{r}\rVert$ for $68.8\%$ of the $5{,}421$ pairs
-in the corpus ($n_{\mathrm{hifi-wins}}/n = 31.2\%$); by
-$\Delta t = 7$~d, the SGP4-wins fraction climbs to $82.1\%$ of
+$\lVert\Delta\mathbf{r}\rVert$ for $68.6\%$ of the $5{,}421$ pairs
+in the corpus ($n_{\mathrm{hifi-wins}}/n = 31.4\%$); by
+$\Delta t = 7$~d, the SGP4-wins fraction climbs to $81.4\%$ of
 $3{,}831$ pairs. A naive expectation that floor dominance would
 collapse the 6~h paired distribution onto the $y = x$ diagonal is
 wrong: both arms inherit the \emph{same}
@@ -869,9 +898,9 @@ $\lVert\Delta\mathbf{r}_{\mathrm{SGP4}}\rVert -
 even when they dominate each absolute norm. The floor inflates the
 $y$-axis and $x$-axis of Figure~\ref{fig:propagator-scatter}
 together but does not bias the win count, and the empirical
-$31.2\%$ at 6~h is the genuine SGP4-vs-hi-fid skill differential
+$31.4\%$ at 6~h is the genuine SGP4-vs-hi-fid skill differential
 on the floor-saturated horizon --- a 19-percentage-point shortfall
-of hi-fid below the null, climbing to a 32-pp shortfall by 7~d.
+of hi-fid below the null, climbing to a 31-pp shortfall by 7~d.
 This is the sharpest form of the H2 negative result:
 high-fidelity propagation initialised from a public TLE is behind
 SGP4 at the operationally relevant 6~h horizon even after the
@@ -884,13 +913,25 @@ beyond the present comparison: as a benchmark target for the
 enhanced-propagator line of work surveyed in
 Section~\ref{sec:background} (SGP4-XP, differentiable SGP4, and
 ML-residual correctors). A future enhanced propagator measured on
-the same locked corpus and Δt buckets, with $(A,\,k)$ refitted
+the same locked corpus and $\Delta t$ buckets, with $(A,\,k)$ refitted
 under the same methodology, would yield a directly comparable
 per-cell pair. The atlas is in a form usable as a regression
 test by that work, independently of whether the conclusion
 reported here --- that high-fidelity dynamics initialised from
 public TLEs do not improve on SGP4 against next-TLE-derived truth
 --- survives propagator innovation.
+
+The atmospheric-density model is a residual lever on the
+high-fidelity arm not exercised here. NRLMSISE-00 is the SSA
+community standard at LEO altitudes today, but its successor
+NRLMSIS~2.0/2.1 \citep{emmert2021} can shift modelled densities by
+10--20\% over the present model in the F-region thermosphere,
+which would map directly into a recalibrated drag acceleration and
+shift the hi-fid-arm errors in a way that is difficult to predict
+without re-running the sweep. Operational space-surveillance
+systems use JB2008 \citep{bowman2008}; GMAT~R2026a does not bundle
+it, so a JB2008 comparison would require a plugin and is left to a
+follow-up alongside an NRLMSIS~2.1 swap.
 
 [TODO: complete §5 in issue \#7 --- practical implications for
 downstream TLE consumers, whether investing in high-fidelity OD is
