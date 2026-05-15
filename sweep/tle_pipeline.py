@@ -418,6 +418,51 @@ def build_corpus(
     return attach_shell(clean, sat_to_shell)
 
 
+def rejection_counts(
+    tles: pd.DataFrame,
+    *,
+    sma_jump_threshold_km: float = DEFAULT_MANEUVER_THRESHOLD_KM,
+    target_dts_sec: tuple[int, ...] = DEFAULT_TARGET_DTS_SEC,
+    tolerance_sec: int = DEFAULT_TOLERANCE_SEC,
+    n_per_shell: int = DEFAULT_SATS_PER_SHELL,
+    seed: int = DEFAULT_SEED,
+) -> pd.DataFrame:
+    """Per-``(alt_shell × target_dt_sec)`` candidate-vs-surviving pair counts.
+
+    Walks the same pipeline as `build_corpus` up to the
+    ``filter_maneuvers`` step and tabulates how many candidate pairs the
+    maneuver filter rejects in each ``(altitude shell × Δt bucket)``
+    cell at the given ``sma_jump_threshold_km``. The "fleet quietness"
+    summary the Appendix A rejection-count table renders against.
+
+    Returns a long DataFrame with columns
+    ``(alt_shell, target_dt_sec, n_candidates, n_survivors, n_rejected)``
+    sorted by ``alt_shell`` then ``target_dt_sec``. Cells with zero
+    candidates (e.g. 540 km × v2-mini in the production corpus) are
+    omitted — the groupby on the candidate set will not produce them.
+    """
+    sat_to_shell = sample_sats(tles, n_per_shell=n_per_shell, seed=seed)
+    subset = tles[tles["norad_id"].isin(sat_to_shell)]
+
+    maneuvers = detect_maneuver_epochs(subset, sma_jump_threshold_km=sma_jump_threshold_km)
+    starts = subsample_starting_tles(subset)
+    candidates = build_pairs(
+        starts,
+        subset,
+        target_dts_sec=target_dts_sec,
+        tolerance_sec=tolerance_sec,
+    )
+    candidates = attach_shell(candidates, sat_to_shell)
+    survivors = filter_maneuvers(candidates, maneuvers)
+
+    group_keys = ["alt_shell", "target_dt_sec"]
+    cand = candidates.groupby(group_keys, sort=True).size().rename("n_candidates")
+    surv = survivors.groupby(group_keys, sort=True).size().rename("n_survivors")
+    out = pd.concat([cand, surv], axis=1).fillna(0).astype(int).reset_index()
+    out["n_rejected"] = out["n_candidates"] - out["n_survivors"]
+    return out.sort_values(group_keys).reset_index(drop=True)
+
+
 def _cli() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -461,6 +506,26 @@ def _cli() -> int:
     )
     ps.add_argument("--out", type=Path, default=Path("src/static/selection_stats.parquet"))
 
+    pr = sub.add_parser(
+        "rejection-counts",
+        help="Per-(alt_shell × target_dt_sec) candidate-vs-surviving pair counts at the "
+        "baseline maneuver threshold → static JSON for the Appendix A rejection table.",
+    )
+    pr.add_argument("--raw", type=Path, default=Path("src/data/tles_raw.parquet"))
+    pr.add_argument(
+        "--out",
+        type=Path,
+        default=Path("src/static/maneuver_rejection_counts.json"),
+    )
+    pr.add_argument(
+        "--sma-threshold-km",
+        type=float,
+        default=DEFAULT_MANEUVER_THRESHOLD_KM,
+        help=f"Maneuver detection threshold in km (default {DEFAULT_MANEUVER_THRESHOLD_KM}).",
+    )
+    pr.add_argument("--per-shell", type=int, default=DEFAULT_SATS_PER_SHELL)
+    pr.add_argument("--seed", type=int, default=DEFAULT_SEED)
+
     args = parser.parse_args()
 
     if args.cmd == "fetch":
@@ -501,6 +566,35 @@ def _cli() -> int:
         out_df.to_parquet(args.out, compression="gzip", index=False)
         print(
             f"computed {len(jumps):,} consecutive |Δa| values → {args.out}",
+            file=sys.stderr,
+        )
+        return 0
+
+    if args.cmd == "rejection-counts":
+        raw = pd.read_parquet(args.raw)
+        counts = rejection_counts(
+            raw,
+            sma_jump_threshold_km=args.sma_threshold_km,
+            n_per_shell=args.per_shell,
+            seed=args.seed,
+        )
+        payload = {
+            "sma_threshold_km": float(args.sma_threshold_km),
+            "n_per_shell": int(args.per_shell),
+            "seed": int(args.seed),
+            "cells": counts.to_dict(orient="records"),
+            "totals": {
+                "n_candidates": int(counts["n_candidates"].sum()),
+                "n_survivors": int(counts["n_survivors"].sum()),
+                "n_rejected": int(counts["n_rejected"].sum()),
+            },
+        }
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+        print(
+            f"rejection-counts at {args.sma_threshold_km * 1000:.0f} m: "
+            f"{payload['totals']['n_rejected']:,}/{payload['totals']['n_candidates']:,} "
+            f"pairs rejected → {args.out}",
             file=sys.stderr,
         )
         return 0

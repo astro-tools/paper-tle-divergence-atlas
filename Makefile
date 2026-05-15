@@ -1,4 +1,4 @@
-.PHONY: help env fetch-tles fetch-satcat fetch-sw install-egm2008 build-corpus build-maneuver-jumps build-sensitivity-subset build smoke sweep aggregate sweep-stats diagnostics cda-sensitivity cda-sensitivity-table figures clean
+.PHONY: help env fetch-tles fetch-satcat fetch-sw install-egm2008 build-corpus build-maneuver-jumps build-rejection-counts build-sensitivity-subset build smoke sweep aggregate sweep-stats diagnostics cda-sensitivity cda-sensitivity-table maneuver-threshold-sensitivity maneuver-threshold-table figures clean
 
 help:
 	@echo "Targets:"
@@ -16,6 +16,10 @@ help:
 	@echo "                  src/static/tles_cache.parquet"
 	@echo "  build-maneuver-jumps -- per-consecutive-pair |Δa| from the raw cache →"
 	@echo "                          src/static/maneuver_jumps.parquet (F8 input)."
+	@echo "  build-rejection-counts -- per-(shell × Δt) candidate-vs-surviving pair"
+	@echo "                            counts at the 100 m baseline threshold →"
+	@echo "                            src/static/maneuver_rejection_counts.json"
+	@echo "                            (Appendix A rejection table input)."
 	@echo "  build-selection-stats -- inter-TLE intervals + per-sat longest-gap series for"
 	@echo "                           the 501-sat corpus → src/static/selection_stats.parquet"
 	@echo "                           (selection-effect appendix figure input)."
@@ -35,6 +39,15 @@ help:
 	@echo "  cda-sensitivity-table -- emit src/tex/tables/tab_cda_sensitivity.tex"
 	@echo "                           and outputs/cda_sensitivity_summary.json from"
 	@echo "                           the three CdA frames."
+	@echo "  maneuver-threshold-sensitivity -- run the 200 m augment sub-sweep"
+	@echo "                                    (~2,500 GMAT runs, ~1-3 h on 8 cores;"
+	@echo "                                    requires GMAT). Requires the 50 m and"
+	@echo "                                    200 m candidate corpora to be built first."
+	@echo "  maneuver-threshold-table -- emit src/tex/tables/tab_maneuver_threshold.tex,"
+	@echo "                              src/tex/tables/tab_maneuver_rejections.tex, and"
+	@echo "                              outputs/maneuver_threshold_summary.json from the"
+	@echo "                              baseline, augment, corpora, and rejection-count"
+	@echo "                              JSON. No GMAT required."
 	@echo "  figures      -- regenerate figures from outputs/"
 	@echo "  clean        -- remove generated artifacts (PDF, figures, snakemake state)"
 	@echo ""
@@ -71,6 +84,11 @@ build-maneuver-jumps:
 	python -m sweep.tle_pipeline maneuver-jumps \
 	    --raw src/data/tles_raw.parquet \
 	    --out src/static/maneuver_jumps.parquet
+
+build-rejection-counts:
+	python -m sweep.tle_pipeline rejection-counts \
+	    --raw src/data/tles_raw.parquet \
+	    --out src/static/maneuver_rejection_counts.json
 
 build-selection-stats:
 	python -m sweep.tle_pipeline selection-stats \
@@ -139,6 +157,26 @@ cda-sensitivity-table:
 	    --subset-ids src/static/sensitivity_subset_pair_ids.txt \
 	    --table-out src/tex/tables/tab_cda_sensitivity.tex \
 	    --summary-out outputs/cda_sensitivity_summary.json
+
+maneuver-threshold-sensitivity:
+	python -m sweep.maneuver_threshold_sensitivity \
+	    --mission sweep/mission.script \
+	    --baseline-corpus src/static/tles_cache.parquet \
+	    --augment-corpus outputs/tles_cache_200m.parquet \
+	    --sw-cache src/static/sw_cache.parquet \
+	    --output-root outputs/_maneuver_threshold_sensitivity \
+	    --out outputs/all_runs_maneuver_augment.parquet
+
+maneuver-threshold-table:
+	python -m sweep.maneuver_threshold_table \
+	    --all-runs outputs/all_runs.parquet \
+	    --augment outputs/all_runs_maneuver_augment.parquet \
+	    --corpus-50m outputs/tles_cache_50m.parquet \
+	    --corpus-200m outputs/tles_cache_200m.parquet \
+	    --rejection-counts src/static/maneuver_rejection_counts.json \
+	    --threshold-table-out src/tex/tables/tab_maneuver_threshold.tex \
+	    --rejections-table-out src/tex/tables/tab_maneuver_rejections.tex \
+	    --summary-out outputs/maneuver_threshold_summary.json
 
 figures:
 	snakemake --cores 1 src/tex/figures
