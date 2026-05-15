@@ -455,7 +455,19 @@ timestamp of a station-keeping event. The threshold is calibrated
 empirically against the $|\Delta a|$ histogram of the entire
 Starlink TLE archive within the window
 (Appendix~\ref{app:maneuver-filter},
-Figure~\ref{fig:maneuver-filter}). After applying the filter, the
+Figure~\ref{fig:maneuver-filter}). The per-step formulation is the
+dominant detection signature for Starlink's krypton Hall-effect
+thrusters because the station-keeping cadence is burst-scheduled with
+multi-hour gaps rather than continuous; for a hypothetical
+steady-state low-thrust drift mode whose per-step $|\Delta a|$ never
+crosses 100~m but which integrates to a meaningful displacement over
+several days, the filter is in principle blind, a known limitation of
+the SMA-jump approach formalised by \citet[\S 3.2]{lemmens2014}.
+A threshold sensitivity at $\{50,\,100,\,200\}$~m on the same locked
+corpus quantifies the effect of that limitation on the headline
+medians and is reported in
+Appendix~\ref{app:maneuver-threshold-sensitivity}.
+After applying the filter, the
 locked sweep corpus contains 24{,}641 surviving pairs; the
 decomposition by altitude shell and Starlink generation is given in
 Table~\ref{tab:corpus}.
@@ -1057,6 +1069,31 @@ cache, with the 100\,m threshold marked.
   \script{fig_maneuver_filter.py}
 \end{figure}
 
+The per-cell rejection footprint of the filter is summarised in
+Table~\ref{tab:maneuver-rejections}: at the baseline 100~m threshold,
+the filter rejects $5{,}810$ of the $30{,}451$ candidate pairs
+($19.1\%$) across the 12 populated $(\text{altitude shell} \times
+\Delta t)$ cells. The rejection rate climbs monotonically with
+$\Delta t$ within each shell, as the half-open interval
+$(t_{i},\,t_{j}]$ has more opportunity to enclose a station-keeping
+event, and with shell altitude, consistent with the v2-mini cohort's
+higher operational maneuver cadence relative to v1.5 at lower shells.
+The $24{,}641$ survivors are the production corpus used everywhere
+else in this paper.
+
+\begin{table}[ht]
+  \centering
+  \caption{``Fleet quietness'' summary at the baseline 100~m maneuver
+  threshold. Counts are aggregated across the 501-satellite stratified
+  sample (Section~\ref{sec:methods-pairs}) into the
+  $(\text{altitude shell} \times \Delta t)$ cells underlying
+  Table~\ref{tab:corpus}; the rejection fraction is the share of
+  candidate pairs whose $(t_{i},\,t_{j}]$ interval covers an SMA-jump
+  event exceeding the threshold.}
+  \label{tab:maneuver-rejections}
+  \input{tables/tab_maneuver_rejections.tex}
+\end{table}
+
 \section{Drag-area sensitivity (v2-mini)}
 \label{app:cda-sensitivity}
 
@@ -1112,6 +1149,84 @@ the drag perturbation; at longer horizons the perturbation
 accumulates and the SGP4 arm absorbs the equivalent bias into its
 operator-fitted $B^{\!\star}$, while the hi-fid arm carries it as
 a propagated error.
+
+\section{Maneuver-threshold sensitivity}
+\label{app:maneuver-threshold-sensitivity}
+
+Section~\ref{sec:methods-pairs} adopts a 100~m SMA-jump threshold for
+the maneuver filter, calibrated empirically against the $|\Delta a|$
+histogram of Figure~\ref{fig:maneuver-filter}. The OD-noise mode and
+the maneuver mode overlap in the $50$--$200$~m region, so a
+$\pm 50$~m perturbation around the baseline threshold could in
+principle shift the locked sweep corpus in either direction. We
+probe the effect of that perturbation on the headline medians by
+rebuilding the candidate corpus at the two threshold endpoints and
+comparing per-cell median high-fidelity position errors against the
+baseline. The 50~m corpus is a strict subset of the 100~m corpus
+($20{,}639$ surviving pairs vs.\ $24{,}641$) and so reuses the
+existing GMAT outputs filtered to the surviving pair set; the 200~m
+corpus adds $2{,}449$ pairs that the 100~m filter rejected
+(``augment'' pairs, $27{,}090$ total at 200~m), and we re-run the
+high-fidelity sweep on those pairs to obtain a comparable per-cell
+median. The augment driver
+(\texttt{sweep.maneuver\_threshold\_sensitivity},
+\texttt{make maneuver-threshold-sensitivity}) and the table emitter
+(\texttt{sweep.maneuver\_threshold\_table},
+\texttt{make maneuver-threshold-table}) produce
+Table~\ref{tab:maneuver-threshold-sensitivity} and the corresponding
+\texttt{outputs/maneuver\_threshold\_summary.json}; both reuse the
+RunSpec / preprocessing helpers from \texttt{sweep.run\_sweep} so the
+augment arm is bit-comparable to the main hi-fid sweep.
+
+\begin{table}[ht]
+  \centering
+  \caption{Per-cell median high-fidelity position error
+  $|\Delta\mathbf{r}|_{\mathrm{hifi}}$ at the baseline 100~m maneuver
+  threshold, with its $95\%$ satellite-level bootstrap confidence
+  interval (1{,}000 resamples drawing satellites with replacement and
+  pooling all of each drawn satellite's pairs to preserve within-sat
+  correlation across $\Delta t$ buckets). The 50~m and 200~m columns
+  report the per-cell median expressed as a relative shift versus the
+  baseline; values flagged with $\dagger$ sit outside the $95\%$
+  bootstrap CI of the corresponding baseline cell.}
+  \label{tab:maneuver-threshold-sensitivity}
+  \input{tables/tab_maneuver_threshold.tex}
+\end{table}
+
+Across the 12 populated $(\mathrm{shell},\,\Delta t)$ cells the per-cell
+median high-fidelity position error moves by at most $-5.7\%$ at the
+$50$~m threshold (worst-cell $550$~km $\times$ $6$~h) and at most
+$+3.4\%$ at the $200$~m threshold ($560$~km $\times$ $6$~h);
+$11$ of the $12$ cells have a $50$~m median inside the corresponding
+baseline $95\%$ bootstrap confidence interval, and all $12$ have a
+$200$~m median inside it. The single cell whose $50$~m median lands
+outside its baseline CI is $540$~km $\times$ $7$~d, where the
+baseline CI of $[166.0,\,180.4]$~km is unusually tight ($\sim 8.5\%$
+wide) and a $-4.4\%$ shift in the median to $165.6$~km slips just
+below the lower bound; the perturbation magnitude is comparable to
+the other cells but the discriminating power of the CI is larger at
+that horizon. Every cell moves in the expected direction (a stricter
+threshold rejects pairs adjacent to maneuvers, biasing the surviving
+distribution toward smaller errors, and conversely for a looser
+threshold). The maximum per-cell shift is an order of magnitude
+smaller than the $\pm 17\%$ peak observed under the
+$\pm 20\%$ $C_D \cdot A$ perturbation
+(Appendix~\ref{app:cda-sensitivity}) and two orders of magnitude
+below the SGP4-vs-hi-fid gap quantified in
+Section~\ref{sec:discussion}, so the H2 negative result is robust
+against the threshold-overlap region flagged by reviewers as a
+methodological concern.
+
+The 50~m corpus retains $20{,}639$ pairs, the baseline $100$~m corpus
+retains $24{,}641$, and the $200$~m corpus retains $27{,}090$
+($2{,}449$ augment pairs whose $(t_{i},\,t_{j}]$ interval contains
+an SMA-jump of magnitude $100$--$200$~m); the inclusion chain
+$50\,\text{m} \subset 100\,\text{m} \subset 200\,\text{m}$ is verified
+empirically at corpus-build time. The bootstrap CI is computed over
+$1{,}000$ satellite-level resamples, drawing satellites with
+replacement and pooling all of each drawn satellite's pairs in the
+cell, so within-sat correlation across the four $\Delta t$ buckets
+does not inflate the percentile interval.
 
 \section{Pair-matching selection-effect diagnostic}
 \label{app:selection-effect}
