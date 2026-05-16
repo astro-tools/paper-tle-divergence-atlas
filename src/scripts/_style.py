@@ -16,6 +16,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from scipy.stats import chi2
 
 # Per-cell sample-size floor below which a generation is pooled with the
 # closest non-empty generation for that (shell, Δt) cell. Set per the issue-4
@@ -128,7 +129,9 @@ def fit_powerlaw(
     polyfit, degree 1 in log-log space), which is robust against the
     4-bucket Δt sampling we use everywhere.
 
-    Used by F5 (per-cell fit) and F7 (per-sat fit). Raises
+    Retained for F7 (per-sat staleness fit). F5 has migrated to the
+    per-pair WLS estimator `fit_powerlaw_perpair` defined below, which
+    matches the §3.7.1 statistical-methods specification. Raises
     ``ValueError`` if fewer than `min_buckets` buckets clear
     `min_pairs_per_bucket`.
     """
@@ -161,6 +164,80 @@ def fit_powerlaw(
     w = np.asarray(weights)
     slope, intercept = np.polyfit(x, y, deg=1, w=w)
     return float(10**intercept), float(slope)
+
+
+def fit_powerlaw_perpair(
+    cell: pd.DataFrame,
+    error_col: str,
+    *,
+    min_pairs: int = 8,
+    dt_col: str = "actual_dt_sec",
+) -> dict[str, float]:
+    """Per-pair log-log fit of ``error ≈ A · (Δt / 1 h)^k`` with LRT.
+
+    Fits an OLS line ``log10(|Δr|) = log10(A) + k · log10(Δt_hours)`` on
+    every pair in `cell` for which `error_col` is positive, using the
+    measured `actual_dt_sec` rather than the nominal bucket centre. Unit
+    weights — per-pair SE(log Δr) is not available on the run parquet,
+    and the satellite-level bootstrap in `bootstrap_by_sat` absorbs the
+    population scatter that a weighted scheme would otherwise track.
+
+    Returns a flat dict
+    ``{"A", "k", "r_squared", "p_lrt_k1", "p_lrt_k2", "n_pairs"}``.
+    LRT statistics are computed as ``n · log(RSS_constrained / RSS)``,
+    asymptotically χ²(1) under H₀ (k = k₀); intercept is profiled out in
+    the constrained fits by recentering on the mean of ``y − k₀·x``.
+
+    Raises ``ValueError`` if fewer than `min_pairs` usable pairs remain
+    after the positivity filter or if the design is degenerate (all Δt
+    values identical, which would collapse the slope).
+    """
+    sub = cell[(cell[error_col] > 0) & np.isfinite(cell[dt_col])]
+    if len(sub) < min_pairs:
+        raise ValueError(f"need at least {min_pairs} pairs to fit; got {len(sub)}")
+
+    x = np.log10(sub[dt_col].to_numpy() / 3600.0)
+    y = np.log10(sub[error_col].to_numpy())
+    n = len(x)
+
+    # `np.var` on a constant array leaves ULP-scale residuals, not a
+    # bitwise zero, so compare the peak-to-peak range against a small
+    # absolute floor instead — realistic LEO `log10(Δt/1h)` covers
+    # roughly $[0.7,\,2.2]$, so $10^{-9}$ is far below any honest
+    # design spread.
+    x_range = float(np.max(x) - np.min(x))
+    if x_range < 1e-9:
+        raise ValueError("Δt design is degenerate (single distinct value in log10(actual_dt_sec))")
+
+    slope, intercept = np.polyfit(x, y, deg=1)
+    y_hat = intercept + slope * x
+    resid = y - y_hat
+    rss_unc = float(np.sum(resid * resid))
+
+    tss = float(np.sum((y - y.mean()) ** 2))
+    r_squared = 1.0 - rss_unc / tss if tss > 1e-30 else float("nan")
+
+    p_values: dict[str, float] = {}
+    for k0_name, k0 in (("p_lrt_k1", 1.0), ("p_lrt_k2", 2.0)):
+        # Constrained fit at slope k0: intercept = mean(y - k0 x).
+        c = y - k0 * x
+        rss_c = float(np.sum((c - c.mean()) ** 2))
+        if rss_unc <= 0.0 or rss_c <= rss_unc:
+            # Numerically indistinguishable from the unconstrained fit;
+            # avoid a spurious log of a non-positive ratio.
+            p_values[k0_name] = 1.0
+            continue
+        lr = n * np.log(rss_c / rss_unc)
+        p_values[k0_name] = float(chi2.sf(lr, df=1))
+
+    return {
+        "A": float(10**intercept),
+        "k": float(slope),
+        "r_squared": float(r_squared),
+        "p_lrt_k1": p_values["p_lrt_k1"],
+        "p_lrt_k2": p_values["p_lrt_k2"],
+        "n_pairs": int(n),
+    }
 
 
 def bootstrap_by_sat(
