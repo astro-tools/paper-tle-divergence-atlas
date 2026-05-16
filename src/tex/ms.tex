@@ -1374,11 +1374,17 @@ with the random intercept absorbing per-satellite shifts in
 $\log_{10} A$ and the fixed-effect slope playing the role of the
 power-law exponent $k$. We fit this model per
 (altitude shell $\times$ pooled generation $\times$ propagator)
-cell via REML with the L-BFGS optimiser
-(\texttt{statsmodels.formula.api.mixedlm}) and emit the results to
-\texttt{outputs/mixed\_effects\_results.csv}, executed via
-\texttt{python src/scripts/\_mixed\_effects.py} alongside the
-main-aggregate build.
+cell via REML with statsmodels' default BFGS optimiser
+(\texttt{statsmodels.formula.api.mixedlm}). L-BFGS was tried
+first but collapsed the random-intercept variance to the zero
+boundary on the well-populated cells of this corpus and aliased
+the scale into the fixed-effect intercept, so the default BFGS
+optimiser is the load-bearing convergence choice here. The driver
+\texttt{python src/scripts/\_mixed\_effects.py} emits the full
+per-cell payload to
+\texttt{outputs/mixed\_effects\_results.csv} and the booktabs
+comparison fragment of Table~\ref{tab:mixed-effects} to
+\texttt{src/tex/tables/tab\_mixed\_effects.tex}.
 
 The supplement serves two purposes. First, the random-intercept
 standard deviation on $\log_{10} A$ is a directly-interpretable
@@ -1389,18 +1395,31 @@ reason. Second, the fixed-effect slope $\hat{k}_{\mathrm{LME}}$ with
 its $1.96\,\mathrm{SE}$ Wald interval is the parametric analogue of
 the main-table $\hat{k}_{\mathrm{OLS}}$ with its bootstrap percentile
 CI; substantive agreement between the two estimators is the
-specific cross-check this appendix asks. A reader who finds the
-LME slope outside the bootstrap CI on any cell should treat the
-main estimator as authoritative --- the percentile CI bounds the
-satellite-level resampling distribution directly, while the LME
-fixed-effect SE assumes a normal random-intercept distribution
-that thin or unbalanced cells violate. The CSV header carries
-\texttt{intercept\_fe, A\_implied, k\_fe, k\_fe\_se, k\_fe\_ci\_lo,
-k\_fe\_ci\_hi, re\_sd\_log10A, n\_pairs, n\_sats, status} per cell
-plus the cell-identifying triple
-\texttt{(alt\_shell, gen\_pooled, propagator)}, so the comparison
-table can be reproduced verbatim from a clean checkout against the
-deposited sweep bundle.
+specific cross-check this appendix asks.
+Table~\ref{tab:mixed-effects} reports the two side by side for
+every populated cell. A reader who finds the LME slope outside the
+bootstrap CI on any cell should treat the main estimator as
+authoritative --- the percentile CI bounds the satellite-level
+resampling distribution directly, while the LME fixed-effect SE
+assumes a normal random-intercept distribution that thin or
+unbalanced cells violate.
+
+\begin{table}[ht]
+  \centering
+  \caption{Per-cell comparison of the main-text per-pair OLS slope
+  $\hat{k}_{\mathrm{OLS}}$ (with $95\%$ satellite-level bootstrap
+  percentile CI, identical procedure to Table~\ref{tab:powerlaw})
+  against the linear mixed-effects fixed-effect slope
+  $\hat{k}_{\mathrm{LME}}$ (with $1.96\,\mathrm{SE}$ Wald CI). The
+  random-intercept SD $\hat\sigma_{\log_{10} A}$ is the LME estimate
+  of the per-satellite scatter in $\log_{10} A$ that the bootstrap
+  on $A$ absorbs implicitly. One row per
+  (altitude shell $\times$ pooled generation $\times$ propagator)
+  cell that reaches the convergence guardrails
+  ($\ge 30$ pairs and $\ge 5$ satellites in the cell).}
+  \label{tab:mixed-effects}
+  \resizebox{\textwidth}{!}{\input{tables/tab_mixed_effects.tex}}
+\end{table}
 
 \section*{Data and code availability}
 \label{sec:availability}

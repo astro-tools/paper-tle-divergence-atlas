@@ -4,17 +4,25 @@ The script fits a per-cell linear mixed-effects model via
 `statsmodels.formula.api.mixedlm`; tests confirm the per-cell loop
 produces a populated row per (alt_shell × gen_pooled × propagator) and
 that synthetic data with a known fixed-effect slope recovers that slope
-within the asymptotic Wald CI.
+within the asymptotic Wald CI. The Appendix-E booktabs comparison
+table emitter is exercised separately to confirm the round-trip from
+the per-cell payload to a well-formed LaTeX fragment.
 """
 
 from __future__ import annotations
 
 import math
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
-from _mixed_effects import _fit_cell, run_all_cells
+from _mixed_effects import (
+    _fit_cell,
+    bootstrap_ols_k,
+    run_all_cells,
+    write_comparison_table,
+)
 
 
 def _make_runs(
@@ -104,3 +112,53 @@ class TestRunAllCells:
         # 95% Wald interval bounds the point estimate by definition.
         assert (ok["k_fe_ci_lo"] <= ok["k_fe"]).all()
         assert (ok["k_fe"] <= ok["k_fe_ci_hi"]).all()
+
+
+class TestBootstrapOlsK:
+    def test_returns_point_and_cis(self):
+        df = _make_runs(n_sats=12, pairs_per_sat=24, seed=5)
+        point, cis = bootstrap_ols_k(df)
+        # Synthetic data populates the single (550, v1.5) cell for both propagators.
+        sgp4_key = "550|v1.5|sgp4|k"
+        hifi_key = "550|v1.5|hifi|k"
+        assert sgp4_key in point
+        assert hifi_key in point
+        # k = 1.3 in the synthetic data; bootstrap recovers within tolerance.
+        assert point[sgp4_key] == pytest.approx(1.3, abs=0.1)
+        lo, hi = cis[sgp4_key]
+        assert lo < point[sgp4_key] < hi
+
+
+class TestWriteComparisonTable:
+    def test_emits_booktabs_fragment(self, tmp_path: Path):
+        df = _make_runs(n_sats=12, pairs_per_sat=24, seed=8)
+        lme = run_all_cells(df)
+        ols_point, ols_cis = bootstrap_ols_k(df)
+        out = tmp_path / "tab_mixed_effects.tex"
+        write_comparison_table(lme, ols_point, ols_cis, out)
+        text = out.read_text()
+        # Booktabs scaffolding present.
+        assert "\\begin{tabular}" in text
+        assert "\\toprule" in text
+        assert "\\midrule" in text
+        assert "\\bottomrule" in text
+        assert "\\end{tabular}" in text
+        # The two propagators show up as labelled cells, not raw keys.
+        assert "SGP4" in text
+        assert "high-fid" in text
+        # The single populated cell from the synthetic data lands in two rows
+        # (one per propagator); both should reach the table.
+        assert text.count("550 km") == 2
+        # The bracketed CI shape is in the rendered output.
+        assert "[" in text and "]" in text
+
+    def test_skips_skipped_cells(self, tmp_path: Path):
+        df = _make_runs(n_sats=3, pairs_per_sat=24)  # below MIN_SATS_PER_CELL
+        lme = run_all_cells(df)
+        ols_point, ols_cis = bootstrap_ols_k(df)
+        out = tmp_path / "tab_mixed_effects.tex"
+        write_comparison_table(lme, ols_point, ols_cis, out)
+        text = out.read_text()
+        # No `ok` cells means no body rows between \midrule and \bottomrule.
+        body = text.split("\\midrule")[1].split("\\bottomrule")[0]
+        assert body.strip() == ""
