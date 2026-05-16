@@ -1018,8 +1018,13 @@ Captions below are placeholders pending final Results lock.]
   \includegraphics[width=\linewidth]{figures/fig_powerlaw_fits.pdf}
   \caption{Power-law fits $\|\Delta\mathbf{r}\| \approx A \cdot \Delta t^{k}$
   per (altitude shell $\times$ pooled generation) cell. Bars show the
-  point estimate; vertical lines give 95\% bootstrap CIs from 1000
-  resamples at the satellite level. Left subpanel per row: coefficient
+  point estimate; vertical lines give 95\% bootstrap percentile CIs
+  from $1{,}000$ resamples drawing satellites with replacement and
+  pooling all of each drawn satellite's pairs in the cell, per the
+  estimator specification in Section~\ref{sec:methods-statistics}. The
+  visual tightness of the CI bars on the well-populated cells reflects
+  the $n \approx 167$ satellites per shell rather than under-accounting
+  for within-satellite correlation. Left subpanel per row: coefficient
   $A$ on a log axis; right subpanel: exponent $k$ with $k = 1$ marked.
   Numerical values are listed in Table~\ref{tab:powerlaw}.}
   \label{fig:powerlaw-fits}
@@ -1035,7 +1040,11 @@ Captions below are placeholders pending final Results lock.]
   the $95\%$ satellite-level bootstrap CI. $R^{2}$ is the
   coefficient of determination of the unconstrained per-pair fit;
   the $p_{k=1} / p_{k=2}$ column reports the likelihood-ratio-test
-  p-values for the two slope nulls $k = 1$ and $k = 2$.}
+  p-values for the two slope nulls $k = 1$ and $k = 2$. Per row, the
+  $A$ entry of whichever propagator has the smaller fitted coefficient
+  is bolded; this is the propagator with the lower error at the
+  $\Delta t = 1\,\text{h}$ normalisation point, not necessarily at
+  the longer bucket centres.}
   \label{tab:powerlaw}
   \resizebox{\textwidth}{!}{\variable{tables/tab_powerlaw.tex}}
   \script{fig_powerlaw_fits.py}

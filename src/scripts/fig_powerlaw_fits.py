@@ -237,6 +237,17 @@ def write_table(
         for gen in gens:
             cells: list[str] = [f"{shell} km", gen]
             seen = False
+            # Bold the A entry of the propagator with the smaller fitted
+            # A in this (shell, gen) cell. NaN-skipping keeps the column
+            # honest if a propagator's fit didn't converge for the cell.
+            a_by_prop = {
+                prop: point.get(f"{shell}|{gen}|{prop}|A", float("nan"))
+                for prop, _, _ in PROPAGATORS
+            }
+            finite_props = [p for p, v in a_by_prop.items() if np.isfinite(v)]
+            lower_a_prop = (
+                min(finite_props, key=a_by_prop.get) if len(finite_props) >= 2 else None
+            )
             for prop, _, _ in PROPAGATORS:
                 A_key = f"{shell}|{gen}|{prop}|A"  # noqa: N806 — math notation
                 k_key = f"{shell}|{gen}|{prop}|k"
@@ -246,7 +257,10 @@ def write_table(
                 A_val = point.get(A_key, float("nan"))  # noqa: N806
                 k_val = point.get(k_key, float("nan"))
                 nan_pair = (float("nan"), float("nan"))
-                cells.append(_format_ci(A_val, cis.get(A_key, nan_pair)))
+                a_cell = _format_ci(A_val, cis.get(A_key, nan_pair))
+                if prop == lower_a_prop:
+                    a_cell = f"\\textbf{{{a_cell}}}"
+                cells.append(a_cell)
                 cells.append(_format_ci(k_val, cis.get(k_key, nan_pair)))
                 cells.append(_format_r_squared(point.get(r2_key, float("nan"))))
                 cells.append(
