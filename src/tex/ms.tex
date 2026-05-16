@@ -1080,10 +1080,46 @@ departure from Eq.~\eqref{eq:h3-slope-altitude-only} that the
 narrow predictor span and modest cell counts make difficult to
 attribute cleanly to either a real cohort-specific
 F10.7 response or to a window-end sampling pattern, and which
-we flag rather than re-fit. The
-81-day-centred robustness fits are all wide of useful
-significance once their $\sim 1.3$~sfu dynamic-range is factored
-in. Section~\ref{sec:discussion}
+we flag rather than re-fit.
+
+The 81-day-centred robustness fits, refit on the same shells
+with the same ANCOVA design, return
+$\hat\beta = +0.003$~per~sfu ($95\%$~CI $[-0.296,\,+0.241]$,
+$p = 0.98$) at $540$~km,
+$\hat\beta = -0.432$~per~sfu ($95\%$~CI $[-0.703,\,-0.205]$,
+$p = 0.001$) at $550$~km, and
+$\hat\beta = -0.253$~per~sfu ($95\%$~CI $[-0.473,\,+0.008]$,
+$p = 0.015$) at $560$~km. The negative slopes at $550$ and
+$560$~km are physically wrong-signed --- the local
+$\partial\,\log\rho / \partial\,\mathrm{F}10.7$ at LEO altitudes
+is uniformly positive, so a genuine drag-modulation signal would
+return $\hat\beta > 0$ --- and we read the apparent significance
+as a sampling artefact rather than a competing H3 estimate. The
+$1.3$~sfu pooled span of the 81-day-centred predictor compresses
+within each cohort to $0.57$--$1.24$~sfu, narrow enough that each
+satellite's per-sat mean is set largely by which sub-window of
+April~2026 its starting epochs cluster in; any window-internal
+correlation between epoch placement and per-sat $A$ then maps
+into the slope rather than into the $\alpha_{\mathrm{gen}}$
+covariate. We report the 81-day fits for completeness and
+treat the daily-mean fit as the load-bearing H3 estimate on the
+present 30-day corpus.
+
+The GMAT-internal-vs-CelesTrak space-weather discrepancy
+documented in Section~\ref{sec:methods-metrics} does not bias
+either $\hat\beta$ above. H3 is fit on the SGP4 arm only, and
+SGP4 reads no external space-weather inputs --- the operator-fitted
+$B^{\!\star}$ encodes whatever density the operator's OD pipeline
+saw, which is upstream of any propagator we run downstream. The
+$\sim 28$~sfu monthly-anchor high-bias on GMAT's NRLMSISE-00
+input lives entirely on the high-fidelity arm of the comparison
+(Section~\ref{sec:methods-metrics}), and the per-sat $A$ this
+section regresses against is recovered from
+$\lVert\Delta\mathbf{r}_{\mathrm{SGP4}}\rVert$. A future hi-fid-arm
+H3 fit would inherit the reconciliation paragraph's caveats; the
+SGP4-arm fit reported here does not.
+
+Section~\ref{sec:discussion}
 returns to whether the absence of a clear $|\hat\beta_{540}|
 \gtrsim |\hat\beta_{560}|$ altitude-attenuation ordering reflects
 a genuine cohort-level cancellation or the narrowness of the
