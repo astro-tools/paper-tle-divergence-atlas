@@ -854,6 +854,75 @@ mixed-effects-versus-bootstrap agreement summary are deferred to
 the appendix so the main-body table remains the single estimator
 of record.
 
+\subsubsection{Physical interpretation of the power-law exponent}
+\label{sec:methods-powerlaw-physics}
+
+The power-law form
+$\lVert\Delta\mathbf{r}(\Delta t)\rVert \approx A\,\Delta t^{k}$
+is descriptive rather than first-principles, but its two
+physically interpretable limits $k = 1$ and $k = 2$ that the LRT
+in Section~\ref{sec:methods-statistics} tests against correspond
+to specific error-source regimes in the orbit-propagation budget,
+both expressed through the along-track component on which the
+gross error overwhelmingly lives
+(Section~\ref{sec:results} and Figure~\ref{fig:error-decomposition}).
+
+Consider first a constant mean-motion error $\delta n$ at epoch ---
+the operational footprint of a $B^{\!\star}$ mis-fit, where the
+operator-fitted ballistic coefficient at $t_{i}$ encodes a mean
+drag environment over the OD window that differs systematically
+from the conditions encountered during forward propagation.
+Integrating the rotational equation $\dot{\theta} = n + \delta n$
+over $(t_{i},\,t_{j}]$ gives an along-track angle offset
+$\delta\theta = \delta n\,\Delta t$, which maps to an arc-length
+displacement
+\begin{equation}
+  \label{eq:powerlaw-k1}
+  \Delta s(\Delta t) \;\approx\; a\,\delta n\,\Delta t,
+\end{equation}
+i.\,e.\ $k = 1$ with $A = a\,\delta n$ (in suitable units for the
+$\Delta t = 1\,\text{h}$ normalisation Table~\ref{tab:powerlaw}
+adopts). The displacement is linear in $\Delta t$ because the
+mean-motion error is constant; no integration of an acceleration
+is involved.
+
+Consider now a constant unmodelled in-track acceleration $a_{\rm{res}}$
+--- the operational footprint of a drag-area or
+spacecraft-property mis-specification, where the integrator (or,
+implicitly, SGP4's own averaged drag term) sees a $\rho\,C_{D}\,A$
+product offset from the truth by a constant. Integrating
+$\ddot{s} = a_{\rm{res}}$ twice with zero displacement and velocity
+at $t_{i}$ gives
+\begin{equation}
+  \label{eq:powerlaw-k2}
+  \Delta s(\Delta t) \;\approx\; \tfrac{1}{2}\,a_{\rm{res}}\,\Delta t^{2},
+\end{equation}
+i.\,e.\ $k = 2$ with $A = a_{\rm{res}} / 2$ (again in
+$\Delta t = 1\,\text{h}$ units).
+
+The empirical observation that fitted $k$ values across our
+populated cells fall in the open interval $(1,\,2)$ ---
+Table~\ref{tab:powerlaw} reports $k$ between $0.75$ and $1.44$
+across the SGP4 cells and $k$ between $1.14$ and $1.43$ across
+the high-fidelity cells --- is therefore the expected signature
+of a \emph{mixture} of the two error modes operating
+simultaneously: a partial $B^{\!\star}$ mis-fit at epoch and a
+residual constant-acceleration term, both feeding the
+along-track budget. The per-cell $(A,\,k)$ pair is, on this
+reading, a coarse two-parameter summary of the operator's
+epoch-time error budget for that satellite cohort: $A$ scales
+with the joint magnitude of both contributions evaluated at
+$\Delta t = 1\,\text{h}$, and $k$ encodes the mix --- closer to
+unity when mean-motion bias dominates, closer to two when a
+residual constant in-track acceleration dominates. Other
+contributions (initial-state error mapped forward by the state
+transition matrix, time-varying drag through a non-constant
+$\rho$, gravity-truncation residuals) shift the effective $(A,
+\,k)$ pair without changing the two limiting endpoints; the LRT
+in Section~\ref{sec:methods-statistics} discriminates a cell
+against those endpoints with the same $\chi^{2}_{1}$ statistic
+in both directions.
+
 \subsection{Reproducibility surface}
 \label{sec:methods-reproducibility}
 
