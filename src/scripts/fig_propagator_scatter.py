@@ -80,6 +80,28 @@ def plot_propagator_scatter(df: pd.DataFrame, out_path: Path) -> None:
             ax.set_ylim(lim_lo, lim_hi)
             ax.set_aspect("equal")
 
+            # Fraction of pairs below the y = x diagonal (hi-fid beats
+            # SGP4 in 3D L2 norm) within this (shell, Δt) cell. Annotate
+            # in the lower-right where the scatter is least crowded.
+            if not cell.empty:
+                wins = (cell["dr_hifi_km"] < cell["dr_sgp4_km"]).mean() * 100.0
+                ax.text(
+                    0.97,
+                    0.04,
+                    f"hi-fid: {wins:.0f}%",
+                    transform=ax.transAxes,
+                    ha="right",
+                    va="bottom",
+                    fontsize=7,
+                    color="0.25",
+                    bbox={
+                        "facecolor": "white",
+                        "edgecolor": "none",
+                        "alpha": 0.7,
+                        "pad": 1.5,
+                    },
+                )
+
             if i == 0:
                 ax.set_title(f"alt shell {shell} km")
             if i == n_rows - 1:
