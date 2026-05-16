@@ -124,9 +124,7 @@ def plot_error_decomposition(df: pd.DataFrame, out_path: Path) -> None:
                     lambda s: s * ALONG_TRACK_REF_SPEED_KMPS,
                 ),
             )
-            sec_ax.set_ylabel(
-                f"timing equivalent at {ALONG_TRACK_REF_SPEED_KMPS} km/s (s)"
-            )
+            sec_ax.set_ylabel(f"timing equivalent at {ALONG_TRACK_REF_SPEED_KMPS} km/s (s)")
 
     axes[0].set_ylabel("|component of Δr| (km)")
 

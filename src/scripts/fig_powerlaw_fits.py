@@ -245,9 +245,7 @@ def write_table(
                 for prop, _, _ in PROPAGATORS
             }
             finite_props = [p for p, v in a_by_prop.items() if np.isfinite(v)]
-            lower_a_prop = (
-                min(finite_props, key=a_by_prop.get) if len(finite_props) >= 2 else None
-            )
+            lower_a_prop = min(finite_props, key=a_by_prop.get) if len(finite_props) >= 2 else None
             for prop, _, _ in PROPAGATORS:
                 A_key = f"{shell}|{gen}|{prop}|A"  # noqa: N806 — math notation
                 k_key = f"{shell}|{gen}|{prop}|k"
