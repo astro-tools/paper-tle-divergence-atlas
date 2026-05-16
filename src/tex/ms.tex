@@ -1089,7 +1089,13 @@ magnitude larger).
 
 The floor argument does \emph{not} carry over to the pair-by-pair
 propagator skill comparison of Figure~\ref{fig:propagator-scatter},
-and the empirical win-fraction data clarifies why. At
+and the empirical win-fraction data clarifies why. We define
+``high-fidelity beats SGP4'' on a per-pair basis as
+$\lVert\Delta\mathbf{r}_{\mathrm{hifi}}\rVert <
+\lVert\Delta\mathbf{r}_{\mathrm{SGP4}}\rVert$ in the 3D L$_{2}$
+norm against the next-TLE-proxy state; an along-track-only
+variant of the same comparison is reported below in
+Section~\ref{sec:discussion-along-track}. At
 $\Delta t = 6$~h, $\mathrm{SGP4}$ wins on
 $\lVert\Delta\mathbf{r}\rVert$ for $68.6\%$ of the $5{,}421$ pairs
 in the corpus ($n_{\mathrm{hifi-wins}}/n = 31.4\%$); by
@@ -1112,6 +1118,78 @@ This is the sharpest form of the H2 negative result:
 high-fidelity propagation initialised from a public TLE is behind
 SGP4 at the operationally relevant 6~h horizon even after the
 floor is accounted for, not merely indistinguishable from it.
+
+\subsection{Along-track dominance of the error budget}
+\label{sec:discussion-along-track}
+
+The L$_{2}$ norm reported in
+Figures~\ref{fig:sgp4-growth}--\ref{fig:propagator-scatter} hides
+\emph{which component} of $\Delta\mathbf{r}$ carries the gross
+error. Figure~\ref{fig:error-decomposition} resolves the question
+directly: the along-track median sits a clean two decades above
+the cross-track and radial medians at every $\Delta t$ bucket and
+in every cohort, and the gap widens with $\Delta t$. By 7~days
+the L$_{2}$ norm and the along-track component are
+indistinguishable within the line widths of the figure --- the
+along-track component \emph{is} the error.
+
+The dominance is a textbook consequence of orbital-dynamics
+geometry rather than a property of either propagator. An
+in-track perturbation --- atmospheric drag, an unmodelled
+component of the geopotential along the velocity direction, or
+the constant in-track acceleration $a_{\rm{res}}$ of
+Equation~\eqref{eq:powerlaw-k2} --- changes orbital energy, which
+maps through the vis-viva relation to a mean-motion error
+$\delta n$, which integrates over $\Delta t$ as the along-track
+arc length $\Delta s \approx a\,\delta n\,\Delta t$ of
+Equation~\eqref{eq:powerlaw-k1} (with $a_{\rm{res}}$-driven
+contributions adding the quadratic-in-$\Delta t$ term). Radial
+and cross-track errors, by contrast, are bounded under the same
+perturbations: $J_{2}$ nodal regression and eccentricity-vector
+drift oscillate at the orbital period and grow only secularly
+through second-order coupling, so neither component accumulates
+freely with $\Delta t$. This is the canonical ``along-track
+linear, transverse bounded'' signature reported in every LEO
+position-error study from \citet{vallado2006} onward, formalised
+through the Hill / Clohessy--Wiltshire relative-motion equations
+\citep[\S\,3.4]{vallado2013}, and codified in operational SSA
+where conjunction-data messages and orbit-determination
+residuals quote the along-track component separately as a matter
+of course.
+
+Two practical consequences follow. First, the $\sim 1$~km median
+3D error at the 6~h horizon translates into a tightly bounded
+\emph{timing} miss along the orbital track. For an essentially
+circular orbit at $a = 6928$~km (the 550~km shell), the
+circular-orbit speed is $v_{c} = \sqrt{\mu / a} \approx
+7.59$~km\,s$^{-1}$ (using $\mu_{\oplus} = 398{,}600.4418$
+km$^{3}$\,s$^{-2}$), so 1~km of along-track displacement is
+1\,km\,/\,7.59\,km\,s$^{-1}\!\approx 0.13$~s of orbital phase ---
+small compared with the $\sim 4$~min operator-update interval but
+directly relevant to probabilistic conjunction assessment, where
+the radial / cross-track miss-distance budget is set by the
+covariance ellipse and a $0.13$~s along-track offset is the
+component most readily reduced by an operator with internal
+tracking. Figure~\ref{fig:error-decomposition} carries the
+conversion explicitly on the secondary axis of the along-track
+panel.
+
+Second, the F2 / F3 / F4 propagator gap (the H2 negative result)
+lives \emph{on the along-track axis}, because along-track is
+where the at-epoch operator OD residual and the $B^{\!\star}$
+mis-fit naturally express themselves --- both are absorbed by the
+operator into a single scalar at $t_{i}$, and that scalar's
+mismatch against the forward propagation environment grows
+linearly along-track. The win-fraction redefined on the
+along-track component alone --- $\lvert\Delta r_{\rm{along},\,
+\mathrm{hifi}}\rvert < \lvert\Delta r_{\rm{along},\,
+\mathrm{SGP4}}\rvert$ --- moves the 6~h hi-fid-wins fraction
+from $31.4\%$ to $34.7\%$ but is essentially unchanged at
+$1$~d ($21.0\%$), $3$~d ($20.5\%$), and $7$~d ($18.6\%$),
+reflecting that the L$_{2}$ comparison is already an along-track
+comparison once the orbital geometry pushes the radial and
+cross-track contributions two decades below. The H2 negative
+result is robust to the choice of metric.
 
 The per-cell $(A,\,k)$ table summarised by
 Figure~\ref{fig:powerlaw-fits} and tabulated in
