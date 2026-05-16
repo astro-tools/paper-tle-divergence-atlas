@@ -1611,84 +1611,184 @@ from zero only at one of them.
 \section{Discussion}
 \label{sec:discussion}
 
-A useful sanity check on the 6~h headline number is to compare it
-directly with the truth-floor diagnostic of
+The empirical headline of Section~\ref{sec:results} --- that the
+high-fidelity propagator initialised from a public TLE is behind
+SGP4 against the next-TLE proxy at every $\Delta t$ bucket of the
+corpus, losing on $65$--$80\%$ of pairs depending on horizon
+(Table~\ref{tab:propagator-wins}) --- supports a more specific
+reading than ``high-fidelity propagation is wasted''. The
+load-bearing statement is the conditional one: \emph{higher
+physical fidelity in the propagator does not imply superior
+predictive accuracy against next-TLE-derived truth when the initial
+condition is itself a state estimated under a different dynamical
+model}. The H2 gap is then not a property of the high-fidelity
+force model in isolation but of the joint
+(initial-state, truth-construction, force-model) triple that the
+public-TLE workflow imposes. Section~\ref{sec:discussion-h2-mechanisms}
+walks that joint object through three mechanisms whose dominance
+regimes partition the four $\Delta t$ buckets cleanly between them;
+the along-track structure of the error budget
+(Section~\ref{sec:discussion-along-track}), the practitioner-facing
+quantitative verdict (Section~\ref{sec:discussion-practical}), and
+the limitations and follow-ups
+(Sections~\ref{sec:discussion-covariance}--\ref{sec:discussion-extensions})
+follow.
+
+\subsection{Three mechanisms behind the H2 gap}
+\label{sec:discussion-h2-mechanisms}
+
+\textbf{Mechanism 1 --- Operator-OD residual dominance at short
+$\Delta t$.} A useful sanity check on the $6$~h headline number is to
+compare it directly with the truth-floor diagnostic of
 Section~\ref{sec:background-truth-floor}. Pooled across the eight
-cohort representatives, the diagnostic returns a median L$_{2}$
+cohort representatives the diagnostic returns a median L$_{2}$
 residual of $1.11$~km on a $\sim 5$~h short arc (per-cohort medians
 $0.81$--$1.37$~km, Table~\ref{tab:truth-floor}), whereas the SGP4
-pooled median at $\Delta t = 6$~h reported in
-Section~\ref{sec:results} is below that value at $\sim 1$~km. Two
-TLE-derived states separated by one operator update interval cannot
-agree better than the floor implied by their independent OD
-residuals; the only way the observed 6~h SGP4 number sits beneath
-the diagnostic floor is by partial self-cancellation between
-adjacent OD residuals (shared attitude assumptions, shared
-recent-maneuver history, common-mode atmospheric mis-fits within
-the operator's batch window), and the gap between the two numbers
-quantifies how much of the 6~h signal is floor versus propagator.
-Treating the diagnostic value as an estimate of the at-epoch OD
-residual scale $\delta_{\mathrm{OD}}$ and propagating it through
-the power-law fit $\lVert\Delta\mathbf{r}\rVert \approx A\,\Delta
-t^{k}$ (Section~\ref{sec:results}, Table~\ref{tab:powerlaw}), the
-$\delta_{\mathrm{OD}}$ contribution biases the fitted coefficient
-$A$ upwards by an amount that scales as
-$\delta_{\mathrm{OD}}\,\Delta t^{-k}$ --- meaningful at 6~h (where
-it accounts for the bulk of the observed value), negligible by
-7~days (where the absolute observed error is two orders of
-magnitude larger).
+pooled median at $\Delta t = 6$~h is below that value at $\sim 0.94$~km
+(Section~\ref{sec:results-h1}). Two TLE-derived states separated by
+one operator update interval cannot agree better than the floor
+implied by their independent OD residuals; the only way the observed
+$6$~h SGP4 number sits beneath the diagnostic floor is by partial
+cancellation between adjacent operator OD residuals --- shared attitude
+assumptions, shared recent-maneuver history, and common-mode
+atmospheric mis-fits within the operator's batch window all act as
+correlated contributions to $\Delta\mathbf{r}_{\mathrm{OD}}(t_{i})$
+and $\Delta\mathbf{r}_{\mathrm{OD}}(t_{j})$ at consecutive epochs.
+The gap between $1.11$~km and $0.94$~km is then a coarse measurement
+of how much of the $6$~h signal is floor versus propagator. Treating
+the diagnostic value as an estimate of the at-epoch OD residual
+scale $\delta_{\mathrm{OD}}$ and propagating it through the
+power-law fit $\lVert\Delta\mathbf{r}\rVert \approx A\,\Delta t^{k}$
+of Table~\ref{tab:powerlaw}, the $\delta_{\mathrm{OD}}$ contribution
+biases the fitted coefficient $A$ upwards by an amount that scales
+as $\delta_{\mathrm{OD}}\,\Delta t^{-k}$ --- meaningful at $6$~h,
+where it accounts for the bulk of the observed value, and negligible
+by $7$~d, where the absolute observed error is two orders of
+magnitude larger. Mechanism~1 therefore inflates both propagator
+arms' absolute L$_{2}$ norms at the $6$~h horizon and recedes
+monotonically with $\Delta t$, vanishing into the percent level at
+$7$~d.
 
-The floor argument does \emph{not} carry over to the pair-by-pair
-propagator skill comparison of Figure~\ref{fig:propagator-scatter},
-and the empirical win-fraction data clarifies why. We define
-``high-fidelity beats SGP4'' on a per-pair basis as
-$\lVert\Delta\mathbf{r}_{\mathrm{hifi}}\rVert <
-\lVert\Delta\mathbf{r}_{\mathrm{SGP4}}\rVert$ in the 3D L$_{2}$
-norm against the next-TLE-proxy state; an along-track-only
-variant of the same comparison is reported below in
-Section~\ref{sec:discussion-along-track}. At
-$\Delta t = 6$~h, $\mathrm{SGP4}$ wins on
-$\lVert\Delta\mathbf{r}\rVert$ for $68.6\%$ of the $5{,}421$ pairs
-in the corpus ($n_{\mathrm{hifi-wins}}/n = 31.4\%$); by
-$\Delta t = 7$~d, the SGP4-wins fraction climbs to $81.4\%$ of
-$3{,}831$ pairs. A naive expectation that floor dominance would
-collapse the 6~h paired distribution onto the $y = x$ diagonal is
-wrong: both arms inherit the \emph{same}
-$\delta_{\mathrm{OD}}(t_{j})$ at the truth epoch and the same
-$\boldsymbol{\Phi}\,\delta_{\mathrm{OD}}(t_{i})$ at the start
-epoch, so the floor terms cancel from the
+A naive expectation that floor dominance would also collapse the
+$6$~h paired distribution onto the $y = x$ diagonal of
+Figure~\ref{fig:propagator-scatter} is, however, wrong. Both
+propagator arms inherit the \emph{same} $\Delta\mathbf{r}_{\mathrm{OD}}(t_{j})$
+at the truth epoch and the same
+$\boldsymbol{\Phi}(t_{j},\,t_{i})\,\Delta\mathbf{r}_{\mathrm{OD}}(t_{i})$
+at the start epoch, so the OD-residual terms cancel from the
 $\lVert\Delta\mathbf{r}_{\mathrm{SGP4}}\rVert -
 \lVert\Delta\mathbf{r}_{\mathrm{hifi}}\rVert$ \emph{differential}
 even when they dominate each absolute norm. The floor inflates the
-$y$-axis and $x$-axis of Figure~\ref{fig:propagator-scatter}
-together but does not bias the win count, and the empirical
-$31.4\%$ at 6~h is the genuine SGP4-vs-hi-fid skill differential
-on the floor-saturated horizon --- a 19-percentage-point shortfall
-of hi-fid below the null, climbing to a 31-pp shortfall by 7~d.
-This is the sharpest form of the H2 negative result:
-high-fidelity propagation initialised from a public TLE is behind
-SGP4 at the operationally relevant 6~h horizon even after the
-floor is accounted for, not merely indistinguishable from it.
+$x$- and $y$-axes of Figure~\ref{fig:propagator-scatter} together
+but does not bias the win count, and the empirical
+$31.4\%$~$[29.9,\,32.8]$ hi-fid-wins fraction at $6$~h
+(Table~\ref{tab:propagator-wins}) is the genuine
+SGP4-vs-high-fidelity skill differential on the floor-saturated
+horizon. The question that mechanism~1 \emph{does not} answer is
+why that differential favours SGP4 at all; mechanism~2 supplies
+the sign.
+
+\textbf{Mechanism 2 --- Truth-construction kernel alignment.} The
+next-TLE-as-proxy comparison is asymmetric in a structural way:
+both the SGP4 prediction at $t_{j}$ and the truth state at $t_{j}$
+are evaluated through the same analytic kernel
+(SGP4 at $\mathrm{TLE}_{j}$, $\Delta t = 0$), while the
+high-fidelity prediction at $t_{j}$ is evaluated through a
+numerically integrated force model that lives in a different
+dynamical reference (Section~\ref{sec:methods-dynamical-consistency}).
+A class of systematic biases that SGP4 carries against the
+underlying physical orbit --- the Brouwer mean-element formulation,
+the WGS-72 gravity constants, the analytic absorption of drag into
+a single fitted $B^{\!\star}$ at epoch --- is therefore mirrored
+between prediction and truth on the SGP4 arm and \emph{cancels}
+from $\Delta\mathbf{r}_{\mathrm{SGP4}}$. The high-fidelity arm has
+no such mirror: its initial state lives on SGP4's
+pseudo-osculating intermediate manifold but its forward propagation
+lives on EGM2008 + NRLMSISE-00 osculating dynamics, so a
+$\mathcal{O}(1)$~km Brouwer short-period mismatch
+(Section~\ref{sec:methods-dynamical-consistency}) is integrated
+into $\Delta\mathbf{r}_{\mathrm{hifi}}$ without compensation at the
+truth construction. The scale of this kernel-alignment advantage
+is exactly the $\sim 1$~km separation between the two arms at the
+$6$~h horizon, and the partial decay of the advantage with
+$\Delta t$ is consistent with the short-period kernel coupling
+back into a secular component through resonant interaction with
+mismodelled drag --- a $B^{\!\star}$ mis-fit on the SGP4 side
+counteracts some of the kernel advantage at long horizons but
+never enough to invert the sign of the differential.
+
+Mechanism~2 is the explicit cost of the public-TLE workflow: a
+researcher with operator-internal Cartesian state vectors would
+bypass it entirely (no mean-element-to-osculating conversion, no
+TEME-to-MJ2000Eq rotation, no analytic kernel imposed on the
+initial condition). For consumers of public TLEs the mechanism is
+unavoidable; for the present comparison it is the largest single
+contribution to the H2 sign at the operationally relevant $6$~h
+and $1$~d horizons.
+
+\textbf{Mechanism 3 --- Spacecraft-property uncertainty
+preferentially harms the hi-fid arm.} The third mechanism
+dominates at the long-$\Delta t$ end of the corpus, where
+mechanism~1 has receded to percent-level and the integrated drag
+modelling error overwhelms the mechanism-2 kernel offset. At
+$\Delta t = 7$~d the pooled high-fidelity L$_{2}$ median sits at
+$\sim 131$~km against the SGP4 median of $\sim 38$~km
+(Section~\ref{sec:results-h1}), and the corresponding hi-fid-wins
+fraction has fallen to $18.6\%$~$[16.1,\,21.3]$
+(Table~\ref{tab:propagator-wins}). The asymmetry is mechanical: a
+systematic $C_{D} \cdot A$ bias feeds directly into the
+high-fidelity drag acceleration through the $\rho\,C_{D}\,A$
+product, whereas SGP4 absorbs the equivalent bias into the
+operator-fitted $B^{\!\star}$ at epoch
+(Section~\ref{sec:background}); the SGP4 arm is therefore
+calibrated against the same data the user has access to, while
+the high-fidelity arm is exposed to whatever residual error the
+modeller's prior on $C_{D} \cdot A$ leaves on the table.
+Appendix~\ref{app:cda-sensitivity} quantifies the effect with a
+$\pm 20\%$ $C_{D} \cdot A$ perturbation on the v2-mini cohort: the
+pooled median $\lvert\Delta\mathbf{r}\rvert_{\mathrm{hifi}}$
+shifts by $-8.9\%$ at $0.8\times$ and $+11.0\%$ at $1.2\times$
+relative to a baseline of $19.5$~km, the per-cell shift is
+direction-consistent (more drag area $\Rightarrow$ larger error,
+the expected sign) and peaks at $\pm 17\%$ in the
+$550$~km~$\times$~$7$~d cell. At the favourable $0.8\times$ factor
+--- roughly what an operator with internal mass-properties
+knowledge would gain over a public-data modeller --- the
+high-fidelity arm still sits $\sim 16$--$18\%$ above SGP4 in the
+two most-affected v2-mini cells, so a quantitatively realistic
+improvement in the modeller's $C_{D} \cdot A$ prior does not
+invert the H2 sign. Spacecraft-property knowledge is therefore a
+mechanism-3 lever for which the present comparison sets an
+empirical upper bound on the achievable gain.
+
+Read together, the three mechanisms partition the H2 gap by
+$\Delta t$ regime: mechanism~1 dominates the absolute L$_{2}$
+norms at the $6$~h horizon but cancels from the differential;
+mechanism~2 carries the $6$~h--$1$~d horizons through the
+kernel-alignment advantage of the analytic-on-analytic truth
+construction; mechanism~3 carries the $3$--$7$~d horizons through
+the integrated drag-acceleration error. The per-cell win
+fractions of Table~\ref{tab:propagator-wins} match this
+partition, including the $35.9\%$~$[31.3,\,41.0]$ hi-fid-wins
+fraction at $550$~km~$\times$~$7$~d --- the cohort where SGP4's
+own fit fails most visibly (super-linear $\hat k = 1.44$ on
+v2-mini, Table~\ref{tab:powerlaw}) and where mechanism~2's
+architectural advantage erodes against mechanism~3's drag-modelling
+penalty.
 
 \subsection{Along-track dominance of the error budget}
 \label{sec:discussion-along-track}
 
-The L$_{2}$ norm reported in
-Figures~\ref{fig:sgp4-growth}--\ref{fig:propagator-scatter} hides
-\emph{which component} of $\Delta\mathbf{r}$ carries the gross
-error. Figure~\ref{fig:error-decomposition} resolves the question
-directly: the along-track median sits a clean two decades above
-the cross-track and radial medians at every $\Delta t$ bucket and
-in every cohort, and the gap widens with $\Delta t$. By 7~days
-the L$_{2}$ norm and the along-track component are
-indistinguishable within the line widths of the figure --- the
-along-track component \emph{is} the error.
-
-The dominance is a textbook consequence of orbital-dynamics
-geometry rather than a property of either propagator. An
-in-track perturbation --- atmospheric drag, an unmodelled
-component of the geopotential along the velocity direction, or
-the constant in-track acceleration $a_{\rm{res}}$ of
+Section~\ref{sec:results-error-structure} reports the empirical
+signature: the along-track median sits a clean two decades above
+cross-track and radial at every $\Delta t$ bucket of the corpus,
+and by $\Delta t = 7$~d the L$_{2}$ norm and the along-track
+component are indistinguishable within the line widths of
+Figure~\ref{fig:error-decomposition}. The dominance is a textbook
+consequence of orbital-dynamics geometry rather than a property of
+either propagator. An in-track perturbation --- atmospheric drag,
+an unmodelled component of the geopotential along the velocity
+direction, or the constant in-track acceleration $a_{\rm{res}}$ of
 Equation~\eqref{eq:powerlaw-k2} --- changes orbital energy, which
 maps through the vis-viva relation to a mean-motion error
 $\delta n$, which integrates over $\Delta t$ as the along-track
@@ -1708,118 +1808,250 @@ where conjunction-data messages and orbit-determination
 residuals quote the along-track component separately as a matter
 of course.
 
-Two practical consequences follow. First, the $\sim 1$~km median
-3D error at the 6~h horizon translates into a tightly bounded
-\emph{timing} miss along the orbital track. For an essentially
-circular orbit at $a = 6928$~km (the 550~km shell), the
-circular-orbit speed is $v_{c} = \sqrt{\mu / a} \approx
-7.59$~km\,s$^{-1}$ (using $\mu_{\oplus} = 398{,}600.4418$
-km$^{3}$\,s$^{-2}$), so 1~km of along-track displacement is
-1\,km\,/\,7.59\,km\,s$^{-1}\!\approx 0.13$~s of orbital phase ---
-small compared with the $\sim 4$~min operator-update interval but
-directly relevant to probabilistic conjunction assessment, where
-the radial / cross-track miss-distance budget is set by the
-covariance ellipse and a $0.13$~s along-track offset is the
-component most readily reduced by an operator with internal
-tracking. Figure~\ref{fig:error-decomposition} carries the
-conversion explicitly on the secondary axis of the along-track
-panel.
-
-Second, the F2 / F3 / F4 propagator gap (the H2 negative result)
-lives \emph{on the along-track axis}, because along-track is
-where the at-epoch operator OD residual and the $B^{\!\star}$
-mis-fit naturally express themselves --- both are absorbed by the
+The H2 mechanism partition of
+Section~\ref{sec:discussion-h2-mechanisms} therefore lives
+predominantly on the along-track axis. At-epoch operator OD
+residuals and $B^{\!\star}$ mis-fits both project most strongly
+onto the velocity-aligned component --- both are absorbed by the
 operator into a single scalar at $t_{i}$, and that scalar's
 mismatch against the forward propagation environment grows
-linearly along-track. The win-fraction redefined on the
-along-track component alone --- $\lvert\Delta r_{\rm{along},\,
-\mathrm{hifi}}\rvert < \lvert\Delta r_{\rm{along},\,
-\mathrm{SGP4}}\rvert$ --- moves the 6~h hi-fid-wins fraction
-from $31.4\%$ to $34.7\%$ but is essentially unchanged at
-$1$~d ($21.0\%$), $3$~d ($20.5\%$), and $7$~d ($18.6\%$),
-reflecting that the L$_{2}$ comparison is already an along-track
-comparison once the orbital geometry pushes the radial and
-cross-track contributions two decades below. The H2 negative
-result is robust to the choice of metric.
+linearly along-track. Empirically, the along-track-only variant
+of the per-pair win-fraction
+$\lvert\Delta r_{\mathrm{along},\,\mathrm{hifi}}\rvert <
+\lvert\Delta r_{\mathrm{along},\,\mathrm{SGP4}}\rvert$
+(Table~\ref{tab:propagator-wins}) moves the $6$~h hi-fid-wins
+fraction from $31.4\%$ to $34.7\%$ but is essentially unchanged
+at $1$~d ($21.0\%$), $3$~d ($20.5\%$), and $7$~d ($18.6\%$);
+the L$_{2}$ comparison is already an along-track comparison once
+the orbital geometry pushes the radial and cross-track
+contributions two decades below. The H2 negative result is
+robust to the choice of metric.
 
 The per-cell $(A,\,k)$ table summarised by
 Figure~\ref{fig:powerlaw-fits} and tabulated in
 Table~\ref{tab:powerlaw} can serve a complementary downstream use
-beyond the present comparison: as a benchmark target for the
+beyond the present comparison, as a benchmark target for the
 enhanced-propagator line of work surveyed in
-Section~\ref{sec:background} (SGP4-XP, differentiable SGP4, and
-ML-residual correctors). A future enhanced propagator measured on
-the same locked corpus and $\Delta t$ buckets, with $(A,\,k)$ refitted
-under the same methodology, would yield a directly comparable
-per-cell pair. The atlas is in a form usable as a regression
-test by that work, independently of whether the conclusion
-reported here --- that high-fidelity dynamics initialised from
-public TLEs do not improve on SGP4 against next-TLE-derived truth
---- survives propagator innovation.
+Section~\ref{sec:background}: SGP4-XP, differentiable SGP4, and
+ML-residual correctors all retain the SGP4 evaluation budget and
+the TLE input format, so a future enhanced propagator measured on
+the same locked corpus and $\Delta t$ buckets, with $(A,\,k)$
+refitted under the same methodology, would yield a directly
+comparable per-cell pair. The atlas is in a form usable as a
+regression test by that work, independently of whether the H2
+sign reported here survives propagator innovation.
 
-The atmospheric-density model is a residual lever on the
-high-fidelity arm not exercised here. NRLMSISE-00 is the SSA
-community standard at LEO altitudes today, but its successor
-NRLMSIS~2.0/2.1 \citep{emmert2021} can shift modelled densities by
-10--20\% over the present model in the F-region thermosphere,
-which would map directly into a recalibrated drag acceleration and
-shift the hi-fid-arm errors in a way that is difficult to predict
-without re-running the sweep. Operational space-surveillance
-systems use JB2008 \citep{bowman2008}; GMAT~R2026a does not bundle
-it, so a JB2008 comparison would require a plugin and is left to a
-follow-up alongside an NRLMSIS~2.1 swap.
+\subsection{Practical implications for public-TLE consumers}
+\label{sec:discussion-practical}
 
-A second residual lever, separately tested, is the per-pair
-drag-area $C_D \cdot A$ override that feeds the high-fidelity
-integrator. The v2-mini ram area is the largest single modelling
-assumption in the spacecraft-properties layer
-(Section~\ref{sec:methods-attitude}), being scaled from Baruah's
-v1.x shark-fin anchor by a bus-size argument rather than from an
-independent ballistic-coefficient analysis. We probe its impact
-empirically by re-running the v2-mini slice of the stratified
-1{,}000-pair sensitivity subset at $C_D \cdot A$ scaling factors of
-$0.8$ and $1.2$, reported in Appendix~\ref{app:cda-sensitivity}.
-The test admits two predictable outcomes: hi-fid still loses across
-every v2-mini cell at both CdA extremes (the H2-robust outcome), or
-hi-fid wins in the 7~d / 550--560~km cohort where
-Figure~\ref{fig:propagator-scatter} already shows a v2-mini-favouring
-wedge (which would sharpen that positive finding rather than the
-headline H2 finding). The empirical result is the first: the pooled
-median $|\Delta\mathbf{r}|_{\mathrm{hifi}}$ across the 399 v2-mini
-pairs in the subset shifts by $-8.9\%$ at $0.8\times$ and $+11.0\%$
-at $1.2\times$ relative to a baseline of $19.5$~km, the per-cell
-shift is direction-consistent in every populated cell (more drag
-area $\Rightarrow$ larger error, the expected sign) and peaks at
-$\pm 17\%$ in the 550~km $\times$ 7~d cell, and crucially at the
-favourable $0.8\times$ factor hi-fid still sits $\sim 16$--$18\%$
-above SGP4 in the two most-affected v2-mini cells
-($550$~km and $560$~km at $7$~d, the same cells hosting the
-Figure~\ref{fig:propagator-scatter} wedge). The H2 negative result
-is therefore robust to in-attitude $C_D \cdot A$ uncertainty rather
-than sharpened by it on the v2-mini cohort.
+Starting from public TLEs, a GMAT-class high-fidelity propagator
+configured per Table~\ref{tab:force-model} (EGM2008
+$70\!\times\!70$, Sun and Moon point-mass third bodies,
+NRLMSISE-00 drag, conical-shadow SRP) and supplied with the
+per-generation drag- and SRP-area estimates of
+Section~\ref{sec:methods-spacecraft-props} does not improve median
+3D position error over SGP4 at any of the four staleness horizons
+sampled by this corpus. The pooled hi-fid-wins fraction sits at
+$31.4\%$~$[29.9,\,32.8]$ at $\Delta t = 6$~h and falls to
+$18.6\%$~$[16.1,\,21.3]$ at $7$~d
+(Table~\ref{tab:propagator-wins}); the median high-fidelity error
+exceeds the SGP4 median by factors of $1.6$, $2.3$, $2.7$, and
+$3.4$ at the four buckets (Section~\ref{sec:results-h1}). The
+qualitative pattern is robust to $\pm 20\%$ $C_{D} \cdot A$
+uncertainty on the v2-mini cohort
+(Appendix~\ref{app:cda-sensitivity}), to $\pm 50$~m perturbations
+around the $100$~m maneuver-filter threshold
+(Appendix~\ref{app:maneuver-threshold-sensitivity}), and to the
+choice between the daily-mean and 81-day-centred F10.7
+predictors in the H3 fit (Section~\ref{sec:methods-h3-regression}).
 
-The asymmetry is mechanical: a systematic $C_D \cdot A$ bias feeds
-directly into the high-fidelity drag acceleration through the
-$\rho\,C_D\,A$ product, whereas SGP4 absorbs the equivalent bias
-into the operator-fitted $B^{\!\star}$ at epoch
-(Section~\ref{sec:background}); the SGP4 arm is therefore
-calibrated against the data the user has access to, while the
-high-fidelity arm is exposed to whatever residual error the
-modeller's prior on $C_D \cdot A$ leaves on the table. A $20\%$
-improvement in $C_D \cdot A$ knowledge --- roughly what an
-operator with internal mass-properties knowledge would gain over
-a public-data modeller --- shifts the hi-fid pooled median at
-$\Delta t = 7$~d by about $17\%$, which still leaves hi-fid
-above SGP4 in every v2-mini cell of the corpus; the residual gap
-lives in the at-epoch operator OD residual and the
-analytic-vs-osculating dynamical-consistency gap
-(Section~\ref{sec:methods-dynamical-consistency}), neither of
-which any public-TLE consumer can reduce by force-model upgrades
-alone.
+For practitioners the operational takeaway is asymmetric across
+horizons. Inside one operator update interval of TLE publication
+--- the $\sim 4$~h Starlink cadence, captured by the $6$~h bucket
+of this corpus --- the propagator choice is secondary to the
+mechanism-1 OD-residual floor: both arms cluster near $1$~km median
+L$_{2}$ error against the proxy truth, with the inter-propagator
+gap dominated by mechanism~2's kernel-alignment offset rather than
+by physical-fidelity differences. At the $1$--$3$~d horizon a
+high-fidelity workflow that brings independent ballistic-coefficient
+estimates and an operator-grade initial state (e.g.\ from internal
+OD or from a third-party tracking service) could in principle close
+mechanism-3 contributions; the present result places the upper
+bound on that closure when only public-TLE inputs are available.
+At the $7$~d horizon the high-fidelity arm is behind SGP4 by a
+factor approaching $3.4$, mechanism~3 dominates the differential,
+and the improvement window for a public-data consumer is closed
+unless the initial state itself improves.
 
-[TODO: complete §5 in issue \#7 --- practical implications for
-downstream TLE consumers, whether investing in high-fidelity OD is
-justified for public-TLE workflows, the full set of limitations.]
+The one cell of the corpus where high-fidelity propagation is
+empirically competitive is the v2-mini cohort at
+$\Delta t = 7$~d on the $550$~km shell, with a hi-fid-wins
+fraction of $35.9\%$~$[31.3,\,41.0]$
+(Table~\ref{tab:propagator-wins}). The cell is the regime where
+the SGP4 arm itself struggles most, carrying a super-linear
+$\hat k \approx 1.44$ on a cohort whose operator-fitted
+$B^{\!\star}$ tracks density less stably than v1.x at the same
+altitude; the architectural advantage of mechanism~2 erodes against
+the underlying skill gap and the two arms approach parity.
+Consumers whose workflow centres on long-staleness v2-mini
+forecasting at moderate altitude should regard the propagator
+choice as cell-specific rather than uniformly disfavouring
+high-fidelity. For the same reason the per-cell $(A,\,k)$ table
+of Table~\ref{tab:powerlaw} is the natural input to a
+practitioner's error budget: it preserves the cohort-resolved
+$A$ and $k$ that no single pooled number captures.
+
+\subsection{Covariance growth and conjunction screening}
+\label{sec:discussion-covariance}
+
+The present analysis reports deterministic L$_{2}$ norms and signed
+RSW components of the position-error vector. A complete uncertainty
+decomposition of the propagation pipeline --- initial-state
+covariance mapped forward by the state-transition matrix,
+force-model parameter uncertainty, density-model uncertainty, the
+operator-OD-residual distribution at both endpoints --- is left to
+a follow-up study; the deterministic staleness atlas provided here
+is the \emph{baseline curve} that any subsequent Monte Carlo or
+sigma-point uncertainty study would integrate against, and the
+per-cell $(A,\,k)$ parametrisation of Table~\ref{tab:powerlaw} is
+the natural reference for a probabilistic extension that fits the
+same functional form to the propagated covariance trace.
+
+For conjunction-screening practitioners, the along-track-dominated
+character of the error
+(Sections~\ref{sec:results-error-structure} and
+\ref{sec:discussion-along-track}) maps directly to
+timing-residual covariance: the $1$~km / $0.13$~s
+correspondence at the $550$~km shell sets the scale at which a
+deterministic miss-distance becomes a probabilistic one through
+the covariance ellipse. The deterministic divergence
+characterised here is \emph{not} the covariance growth of the
+propagator --- those are formally distinct quantities, the former
+a single trajectory's drift against a proxy truth and the latter
+the trace of the propagated covariance matrix --- but the present
+results constrain a useful aspect of the latter: any covariance
+realism study \citep[\S\,8]{vallado2013} must reproduce the
+per-cell deterministic curves of Table~\ref{tab:powerlaw} as a
+special case at zero process noise, since the deterministic and
+stochastic propagations share the same underlying force model and
+the same initial-state mean. Operational conjunction-data
+messages quote along-track $1\sigma$ separately from the radial
+and cross-track $1\sigma$ precisely because that decomposition
+mirrors the error budget the present analysis isolates.
+
+\subsection{Limitations}
+\label{sec:discussion-limitations}
+
+The analysis is constrained on several axes worth listing
+explicitly. \emph{Single constellation.} Starlink dominates the
+public-TLE LEO population but is not the only platform of
+interest; OneWeb, Kuiper, and the small-satellite fleets carry
+different bus geometries and ballistic-coefficient scales and are
+out of scope here. The three-mechanism partition of
+Section~\ref{sec:discussion-h2-mechanisms} is constellation-agnostic
+on its mechanism descriptions but the quantitative win-fraction
+levels are not.
+
+\emph{30-day window of moderate solar activity.} The corpus spans
+2026-04-01 to 2026-05-01 inclusive, with a daily-mean
+F10.7 range of $\sim 17$~sfu across satellites and an
+81-day-centred range of $\sim 1.3$~sfu. The H3 fit's leverage on
+the long-period predictor is correspondingly small
+(Section~\ref{sec:results-h3}); extrapolation to high-F10.7
+conditions, where atmospheric density at $540$~km can be a factor
+of several over the corpus median, inherits the assumption that
+the present mechanism partition holds.
+
+\emph{Atmosphere model.} NRLMSISE-00 is the SSA community
+standard at LEO altitudes today, but its successor NRLMSIS~2.0/2.1
+\citep{emmert2021} can shift modelled densities by $10$--$20\%$
+over the present model in the F-region thermosphere, and
+operational space-surveillance systems use JB2008
+\citep{bowman2008}, which GMAT~R2026a does not bundle. A
+sensitivity rerun under either alternative is the most direct test
+of the mechanism-3 calibration assumption.
+
+\emph{Truth construction.} The next-TLE-as-proxy methodology is by
+assumption a self-consistency check against the operator's own
+orbit determination
+(Section~\ref{sec:background-truth-floor}); the
+$\Delta\mathbf{r}_{\mathrm{OD}}$ residuals at both endpoints are
+real and bound the absolute interpretability of the $6$~h headline
+in particular. A true ground-truth assessment would require
+operator-internal GNSS or radar-tracked state vectors, neither of
+which is currently available for public study.
+
+\emph{Spacecraft-property prior on v2-mini.} The v2-mini effective
+drag area at $C_{D} = 2.2$ is scaled from the Baruah v1.x
+shark-fin anchor by the published bus-size ratio
+(Section~\ref{sec:methods-attitude}, Table~\ref{tab:drag-areas});
+Appendix~\ref{app:cda-sensitivity} shows the H2 reading robust to
+$\pm 20\%$, but absolute v2-mini error magnitudes carry that
+calibration uncertainty as a common-mode offset.
+
+\emph{Maneuver-filter sensitivity floor.} Continuous low-thrust
+station-keeping is detected only through its per-step SMA jumps;
+a hypothetical purely continuous-drift mode whose per-step
+$\lvert\Delta a\rvert$ never crosses the calibrated threshold
+slips through the filter (Section~\ref{sec:methods-pairs},
+\citealp[\S\,3.2]{lemmens2014}).
+Appendix~\ref{app:maneuver-threshold-sensitivity} bounds the
+effect of the threshold choice in the empirically interesting
+$50$--$200$~m region, but the limit-of-detection floor remains
+methodological.
+
+\subsection{Extensions}
+\label{sec:discussion-extensions}
+
+Three concrete extensions follow naturally from the present
+analysis. The most informative is replication on a longer window
+straddling a solar-cycle transition: the narrow F10.7 lever on the
+30-day corpus is the principal limitation on the H3 statistical
+power (Section~\ref{sec:results-h3}), and a $6$--$12$-month corpus
+spanning both quiet and active periods would yield the cleanest
+test of the density-modulation hypothesis. The atmosphere-model
+swap to NRLMSIS~2.1 \citep{emmert2021} or JB2008
+\citep{bowman2008} is the second: the per-cell $(A,\,k)$ table is
+a ready-made benchmark against which an atmosphere-model
+sensitivity study would shift the high-fidelity arm in a directly
+comparable way. The third is cross-constellation replication on
+OneWeb, Kuiper, or the small-satellite fleets with the same
+methodology and the same locked corpus structure, both to test
+the cohort universality of the three-mechanism partition and to
+provide a cross-constellation reference for conjunction-assessment
+practitioners.
+
+Two methodological extensions are also in scope. The
+mixed-effects supplement of Appendix~\ref{app:mixed-effects}
+reports per-cell linear mixed-effects fits as a parametric
+cross-check of the per-pair OLS estimator with satellite-level
+bootstrap CIs; in a follow-up release the mixed-effects fit
+could be escalated to the main-body estimator if the per-cell
+agreement of Table~\ref{tab:mixed-effects} held on extended
+corpora, or if a reviewer pushed for the parametric absorption
+of within-sat correlation rather than the present non-parametric
+resample. A gravity-truncation sensitivity test at
+$40\!\times\!40$ and $20\!\times\!20$ would quantify the (small)
+effect of higher-order geopotential terms on the long-$\Delta t$
+high-fidelity arm and is straightforward to add against the
+existing sweep harness; we note explicitly that the present
+$70\!\times\!70$ truncation reproduces the EGM2008 geopotential
+at LEO altitudes to sub-millimetre precision over multi-day arcs
+\citep{pavlis2012} so the test is one of methodological completeness
+rather than expected sensitivity.
+
+A complete uncertainty-propagation pipeline --- propagating the
+operator-OD covariance forward and combining it with force-model
+and atmosphere-model parameter uncertainty --- is the natural
+follow-up of largest interest to conjunction-screening
+practitioners and is the principal direction the deterministic
+atlas reported here is intended to enable. The per-cell
+$(A,\,k)$ pair is the form that a probabilistic extension would
+read against, and the architecture and reproducibility surface
+of the present analysis
+(Section~\ref{sec:methods-reproducibility}) are designed so the
+extension can be driven by a re-run of the same sweep with a
+covariance-aware integrator and an unchanged corpus.
 
 \section{Conclusion}
 \label{sec:conclusion}
