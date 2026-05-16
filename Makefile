@@ -1,4 +1,4 @@
-.PHONY: help env fetch-tles fetch-satcat fetch-sw install-egm2008 build-corpus build-maneuver-jumps build-rejection-counts build-sensitivity-subset build smoke sweep aggregate sweep-stats diagnostics cda-sensitivity cda-sensitivity-table maneuver-threshold-sensitivity maneuver-threshold-table figures clean
+.PHONY: help env fetch-tles fetch-satcat fetch-sw install-egm2008 build-corpus build-maneuver-jumps build-rejection-counts build-sensitivity-subset build smoke sweep aggregate sweep-stats diagnostics cda-sensitivity cda-sensitivity-table maneuver-threshold-sensitivity maneuver-threshold-table h3-regression figures clean
 
 help:
 	@echo "Targets:"
@@ -48,6 +48,11 @@ help:
 	@echo "                              outputs/maneuver_threshold_summary.json from the"
 	@echo "                              baseline, augment, corpora, and rejection-count"
 	@echo "                              JSON. No GMAT required."
+	@echo "  h3-regression -- per-(shell x gen) H3 OLS fits with sat-level bootstrap CIs"
+	@echo "                   on the daily-mean and 81-day-centred F10.7 predictors,"
+	@echo "                   emitted as outputs/h3_regression.json. Run by"
+	@echo "                   fig_solar_modulation.py internally; this target is for"
+	@echo "                   local inspection only."
 	@echo "  figures      -- regenerate figures from outputs/"
 	@echo "  clean        -- remove generated artifacts (PDF, figures, snakemake state)"
 	@echo ""
@@ -177,6 +182,12 @@ maneuver-threshold-table:
 	    --threshold-table-out src/tex/tables/tab_maneuver_threshold.tex \
 	    --rejections-table-out src/tex/tables/tab_maneuver_rejections.tex \
 	    --summary-out outputs/maneuver_threshold_summary.json
+
+h3-regression:
+	python src/scripts/_h3_regression.py \
+	    --all-runs outputs/all_runs.parquet \
+	    --sw-cache src/static/sw_cache.parquet \
+	    --out outputs/h3_regression.json
 
 figures:
 	snakemake --cores 1 src/tex/figures

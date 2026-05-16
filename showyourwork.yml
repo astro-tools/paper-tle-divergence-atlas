@@ -41,5 +41,7 @@ dependencies:
     - outputs/all_runs.parquet
   src/scripts/fig_solar_modulation.py:
     - outputs/all_runs.parquet
+    - src/static/sw_cache.parquet
+    - src/scripts/_h3_regression.py
   src/scripts/fig_maneuver_filter.py:
     - src/static/maneuver_jumps.parquet

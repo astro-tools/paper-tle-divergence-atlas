@@ -923,6 +923,103 @@ in Section~\ref{sec:methods-statistics} discriminates a cell
 against those endpoints with the same $\chi^{2}_{1}$ statistic
 in both directions.
 
+\subsubsection{H3 regression specification}
+\label{sec:methods-h3-regression}
+
+Hypothesis H3 asks whether the per-satellite SGP4 staleness
+coefficient $A_{i}$ tracks the solar-EUV proxy F10.7 in the
+drag-dominant cohorts of the corpus. The model is the simplest
+univariate form,
+\begin{equation}
+  \label{eq:h3-model}
+  \log_{10} A_{i} \;=\; \alpha \;+\; \beta\,\mathrm{F}10.7_{i}
+                       \;+\; \varepsilon_{i},
+\end{equation}
+fit by ordinary least squares in $\log_{10} A$ on each
+(altitude shell~$\times$~pooled generation) cell separately,
+with $A_{i}$ recovered from the satellite's per-bucket
+$\lVert\Delta\mathbf{r}_{\mathrm{SGP4}}\rVert$ by the
+weighted-log-log power-law fit of
+Section~\ref{sec:methods-statistics} restricted to a single
+satellite. The fit is on the SGP4 arm only: the operator-fitted
+$B^{\!\star}$ that absorbs density during the OD window is the
+quantity H3 asks about, and the high-fidelity arm carries the
+GMAT-internal space-weather bias discussed earlier in
+Section~\ref{sec:methods-metrics}, which would confound a
+parallel hi-fid regression and is left to a follow-up that
+re-runs against the live CelesTrak file.
+
+Stratifying within shell by pooled generation is load-bearing.
+A naive shell-pooled fit at $550$ or $560$~km mixes v1.x and
+v2-mini cohorts whose per-sat $A$ medians differ by roughly a
+factor of $4$ (v1.x at $0.13$--$0.22$, v2-mini at $0.06$~km at
+$\Delta t = 1$~h) and whose F10.7 windows are also offset by a
+few sfu within the analysis window; the cross-cohort
+composition shift then aliases into a Simpson-paradox slope on
+the pooled regression. A pooled $550$~km fit on the present
+corpus, run as a diagnostic, returns $\hat\beta = -0.054$~per
+sfu at $p \approx 2\times 10^{-7}$, a wrong-signed cross-cohort
+artefact rather than a within-cohort drag signal. The
+(shell~$\times$~gen) granularity isolates each cell to a single
+generation and lets the within-cohort F10.7 slope, if any, surface
+without that contamination.
+
+Two predictors are reported per cell. The headline predictor is
+the per-satellite mean of the daily observed F10.7 over the
+satellite's window of starting epochs, parsed from the CelesTrak
+cache described in Section~\ref{sec:methods-metrics}. As a
+robustness check we additionally fit Eq.~\eqref{eq:h3-model} with
+the per-satellite mean of the CelesTrak 81-day centred F10.7
+average as the predictor; the 81-day average is the
+long-term-thermospheric driver that NRLMSISE-00 consumes
+internally and is the convention-matched predictor for any
+attempt to interpret $\hat\beta$ as a density-modulation slope.
+Over the 30-day corpus window the daily-mean predictor spans
+roughly $17$~sfu sat-to-sat ($\approx 104$--$138$) while the
+81-day-centred predictor compresses to $\approx 1.3$~sfu
+($\approx 124.6$--$125.9$) by construction, so the 81-day
+robustness fit has very limited statistical leverage and we
+treat the daily-mean fit as the load-bearing report.
+
+For each cell, the full-sample OLS gives the point
+$(\hat\alpha,\,\hat\beta)$ with the asymptotic standard error
+$\mathrm{SE}(\hat\beta)$ and the two-sided $t$-stat $p$-value
+for $H_{0}\!:\beta = 0$ under standard OLS assumptions on the
+residuals. The $95\%$
+percentile confidence interval on $\hat\beta$ is taken from a
+$1{,}000$-resample satellite-level bootstrap (each resample
+draws sats with replacement from the cell and refits
+Eq.~\eqref{eq:h3-model}; CI bounds are the $2.5$th and $97.5$th
+percentiles of the resampled $\hat\beta$ distribution),
+identical in resampling structure to the per-cell power-law CIs
+in Section~\ref{sec:methods-statistics}. The
+$\mathrm{Var}(\hat\beta)$ that the asymptotic SE assumes is
+i.i.d.\ across satellites; the bootstrap CI is the
+non-parametric concession to any per-satellite dependence
+structure missed by that assumption.
+
+Empirical results per cell are reported in
+Figure~\ref{fig:solar-modulation} and discussed in
+Section~\ref{sec:discussion}. The daily-mean fit returns
+$\hat\beta = +0.017$~per~sfu ($95\%$~CI $[-0.002,\,+0.036]$,
+$p = 0.07$, $R^{2} = 0.02$) on the $540$~km~$\times$~v1.x cell,
+a positive trend that does not clear conventional significance;
+$\hat\beta = +0.035$~per~sfu ($95\%$~CI
+$[+0.007,\,+0.064]$, $p = 0.004$, $R^{2} = 0.09$) on the
+$560$~km~$\times$~v1.x cell --- the strongest signal in the
+table, against the $|\hat\beta_{540}| \gtrsim |\hat\beta_{560}|$
+ordering a steep-$\mathrm{d}\rho/\mathrm{d}h$ argument would
+predict; and $\hat\beta$ values consistent with zero on every
+v2-mini cell and on the $550$~km~$\times$~v1.x cell. The
+81-day-centred robustness fits are all wide of significance
+once their $\sim 1.3$~sfu dynamic-range is factored in; the
+narrow predictor span makes them informative as a robustness
+report against the daily-mean choice but not as an independent
+H3 estimator on the present 30-day corpus. Section~\ref{sec:discussion}
+returns to whether the absence of a clean altitude-attenuation
+signature reflects a genuine cohort-level cancellation or the
+narrowness of the F10.7 lever available in the analysis window.
+
 \subsection{Reproducibility surface}
 \label{sec:methods-reproducibility}
 
@@ -1069,12 +1166,23 @@ Captions below are placeholders pending final Results lock.]
 \begin{figure}[ht]
   \centering
   \includegraphics[width=\linewidth]{figures/fig_solar_modulation.pdf}
-  \caption{Per-satellite SGP4 staleness coefficient $A$ vs.\ the mean
-  solar F10.7 flux over the satellite's corpus time window, restricted
-  to the drag-dominated sub-550\,km shell. Markers colored by pooled
-  generation; thick lines are per-generation rolling medians.
-  Addresses H3: error growth under drag-driven conditions should track
-  solar EUV proxy.}
+  \caption{Per-satellite SGP4 staleness coefficient $A$ vs.\ the
+  mean daily-observed F10.7 flux over the satellite's corpus time
+  window, stratified by (altitude shell~$\times$~pooled generation).
+  Rows are pooled generation (v1.x top, v2-mini bottom); columns are
+  altitude shell ($540$, $550$, $560$~km). The $540$~km~$\times$~v2-mini
+  panel is empty because the corpus has no v2-mini satellites at that
+  altitude (Table~\ref{tab:corpus}). Within each populated panel:
+  per-satellite markers in the pooled-generation colour, rolling
+  median (solid), the OLS fit of Eq.~\eqref{eq:h3-model} (dashed),
+  and the $95\%$ percentile CI of the resampled OLS lines (shaded
+  ribbon) over $1{,}000$ satellite-level bootstrap resamples. The
+  in-panel annotation reports $\hat\beta$, its $95\%$ bootstrap CI,
+  the $t$-stat $p$-value for $H_{0}\!:\beta = 0$, and the satellite
+  count, per Section~\ref{sec:methods-h3-regression}. Stratifying
+  within shell by generation is load-bearing: a shell-pooled fit at
+  $550$ or $560$~km is contaminated by the v1.x~$\leftrightarrow$~v2-mini
+  composition shift, as discussed in the same section.}
   \label{fig:solar-modulation}
   \script{fig_solar_modulation.py}
 \end{figure}
