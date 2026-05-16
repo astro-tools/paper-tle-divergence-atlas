@@ -1006,7 +1006,9 @@ Captions below are placeholders pending final Results lock.]
   per-panel label in each lower-right corner reports the fraction of
   cell pairs below the diagonal (``hi-fid wins''), the same definition
   used in the win-fraction discussion of
-  Section~\ref{sec:discussion}.}
+  Section~\ref{sec:discussion}. A hexbin density variant of the same
+  data is in Appendix~\ref{app:propagator-scatter-hexbin}
+  (Figure~\ref{fig:propagator-scatter-hexbin}).}
   \label{fig:propagator-scatter}
   \script{fig_propagator_scatter.py}
 \end{figure}
@@ -1334,6 +1336,40 @@ else in this paper.
   \label{tab:maneuver-rejections}
   \input{tables/tab_maneuver_rejections.tex}
 \end{table}
+
+\section{Hexbin density view of the propagator scatter}
+\label{app:propagator-scatter-hexbin}
+
+Figure~\ref{fig:propagator-scatter} in the main body shows every
+$(\mathrm{TLE}_{i},\,\mathrm{TLE}_{j})$ pair as an individual marker
+on the SGP4-vs-high-fidelity plane, so that points above and below
+the $y = x$ diagonal can be read pair by pair. At the longer
+$\Delta t$ buckets the per-pair markers begin to overplot, masking
+the joint-density structure of the comparison.
+Figure~\ref{fig:propagator-scatter-hexbin} renders the same data on
+the same axes as a log-binned hexbin density. The horizontal
+saturation band at $540$~km~$\times$~$\{3,\,7\}$~d --- the
+fingerprint of a near-constant high-fidelity force-model floor ---
+becomes a single sharp ridge of the densest hex cells, and the
+v2-mini wedge of below-the-diagonal pairs at
+$\{550,\,560\}$~km~$\times$~$7$~d is visible as a low-density
+plume reaching well into the high-fidelity-wins region. The
+per-panel hi-fid-wins fraction inset is repeated here so the
+density view and the scatter view share an identical numerical
+summary.
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\linewidth]{figures/fig_propagator_scatter_hexbin.pdf}
+  \caption{Hexbin density variant of
+  Figure~\ref{fig:propagator-scatter}. Each panel is binned in
+  $(\log_{10}|\Delta\mathbf{r}|_{\mathrm{SGP4}},\,\log_{10}|\Delta
+  \mathbf{r}|_{\mathrm{hifi}})$ on $\mathrm{gridsize} = 30$ hexes
+  per side, viridis colour ramp with $\mathrm{mincnt} = 1$;
+  per-panel hi-fid-wins fraction inset as in the main scatter.}
+  \label{fig:propagator-scatter-hexbin}
+  \script{fig_propagator_scatter_hexbin.py}
+\end{figure}
 
 \section{Drag-area sensitivity (v2-mini)}
 \label{app:cda-sensitivity}
