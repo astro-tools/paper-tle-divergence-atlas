@@ -776,6 +776,84 @@ inherit the at-epoch operator OD residual that dominates the
 short-$\Delta t$ budget.
 \par}
 
+\subsubsection{Statistical estimators}
+\label{sec:methods-statistics}
+
+The per-cell power-law fit reported in
+Figure~\ref{fig:powerlaw-fits} and Table~\ref{tab:powerlaw} is a
+weighted-with-unit-weights ordinary-least-squares regression of
+$\log_{10}\lVert\Delta\mathbf{r}\rVert$ on
+$\log_{10}(\Delta t / 1\,\text{h})$, fit on every pair in the
+(altitude shell $\times$ pooled generation $\times$ propagator) cell.
+Each pair contributes its own measured $\Delta t$ (the
+\texttt{actual\_dt\_sec} column of the per-run parquet, which carries
+the realised epoch spacing inside the $\pm 2$~h matching tolerance);
+the four nominal staleness buckets $\{6\,\text{h},\,1\,\text{d},\,
+3\,\text{d},\,7\,\text{d}\}$ used by
+Figures~\ref{fig:sgp4-growth}, \ref{fig:hifi-growth}, and
+\ref{fig:error-decomposition} are a visualisation device only and do
+not enter the fit. A well-populated cell carries
+$\mathcal{O}(10^{3})$ pairs, so the regression has $\mathcal{O}(10^{3})$
+degrees of freedom, not the four that a naive reading of the
+bucketed figures would suggest; per-pair fitting also lets the
+within-bucket spread in $\Delta t$ contribute information that a fit
+to per-bucket medians would discard. Per-pair weights are uniform:
+pair-level $\mathrm{SE}(\log_{10}\lVert\Delta\mathbf{r}\rVert)$ is
+not available on the run parquet, and the satellite-level bootstrap
+introduced below absorbs the population scatter that an
+inverse-variance scheme would otherwise track.
+
+Confidence intervals for $A$ and $k$ are percentile intervals from a
+$1{,}000$-resample bootstrap drawn at the satellite level: each
+resample picks satellites with replacement from the cell and pools
+all four bucket-of-pairs from each drawn satellite. Resampling at
+the satellite rather than the pair level preserves within-satellite
+correlation across the four staleness buckets --- pairs sharing a
+ballistic coefficient, attitude duty cycle, and perturbation history
+are not independent observations, and a pair-level bootstrap would
+understate uncertainty by treating them as such. Asymmetric
+percentile intervals are reported as such; bias-corrected and
+accelerated (BCa) intervals are not adopted as a default because the
+percentile intervals are visually symmetric in every populated cell,
+but the same satellite-level resampling is BCa-ready and could be
+swapped if a future re-run developed a skewed estimator.
+
+Table~\ref{tab:powerlaw} additionally reports the per-cell
+coefficient of determination $R^{2}$ of the unconstrained
+per-pair fit and likelihood-ratio test (LRT) p-values for the two
+physically interpretable nulls $k = 1$ (constant mean-motion bias,
+linear along-track displacement) and $k = 2$ (constant unmodelled
+along-track acceleration, quadratic along-track displacement). The
+LRT statistic for the slope constraint $k = k_{0}$ is the
+asymptotically $\chi^{2}_{1}$ quantity
+$n\,\log(\mathrm{RSS}_{c} / \mathrm{RSS}_{u})$, where
+$\mathrm{RSS}_{u}$ is the residual sum of squares of the
+unconstrained fit and $\mathrm{RSS}_{c}$ is the analogous quantity
+under $k = k_{0}$ with the intercept profiled out by recentering on
+$\overline{y - k_{0} x}$. The LRT p-value is the survival probability
+of the test statistic under that asymptotic distribution. We do
+\emph{not} report bootstrap CIs for $R^{2}$ or for the LRT
+p-values: both are reported as point estimates from the full-cell
+unconstrained fit, since they answer questions about the
+goodness-of-fit and the discriminability of the slope nulls rather
+than about the fitted parameter values themselves.
+
+Appendix~\ref{app:mixed-effects} reports a parametric cross-check
+of the main estimator: a per-cell linear mixed-effects fit of
+$\log_{10}\lVert\Delta\mathbf{r}\rVert$ on $\log_{10}\Delta t$
+with a satellite-level random intercept,
+$\log_{10}\lVert\Delta\mathbf{r}\rVert \sim
+\log_{10}\Delta t + (1 \mid \texttt{norad\_id})$.
+Mixed effects treat the same within-satellite correlation
+parametrically, by assuming a normal random-intercept distribution
+across satellites; the bootstrap handles it non-parametrically. A
+substantive disagreement between the two on any cell would be a
+signal to escalate the mixed-effects fit to the primary estimator
+in a follow-up revision. The per-cell comparison and a
+mixed-effects-versus-bootstrap agreement summary are deferred to
+the appendix so the main-body table remains the single estimator
+of record.
+
 \subsection{Reproducibility surface}
 \label{sec:methods-reproducibility}
 
@@ -873,10 +951,15 @@ Captions below are placeholders pending final Results lock.]
 \begin{table}[ht]
   \centering
   \caption{Power-law fit parameters per (altitude shell $\times$ pooled
-  generation), for SGP4 and high-fidelity propagators. Values are point
-  estimate followed by 95\% bootstrap CI.}
+  generation), for SGP4 and high-fidelity propagators. Values for the
+  coefficient $A$ and exponent $k$ are point estimates from the
+  per-pair OLS fit (Section~\ref{sec:methods-statistics}) followed by
+  the $95\%$ satellite-level bootstrap CI. $R^{2}$ is the
+  coefficient of determination of the unconstrained per-pair fit;
+  the $p_{k=1} / p_{k=2}$ column reports the likelihood-ratio-test
+  p-values for the two slope nulls $k = 1$ and $k = 2$.}
   \label{tab:powerlaw}
-  \variable{tables/tab_powerlaw.tex}
+  \resizebox{\textwidth}{!}{\variable{tables/tab_powerlaw.tex}}
   \script{fig_powerlaw_fits.py}
 \end{table}
 
@@ -1270,6 +1353,73 @@ sat-days but is not asymmetrically excluding any satellite.
   \label{fig:selection-effect}
   \script{fig_selection_effect.py}
 \end{figure}
+
+\section{Mixed-effects supplement}
+\label{app:mixed-effects}
+
+Section~\ref{sec:methods-statistics} adopts a per-pair OLS power-law
+fit with satellite-level bootstrap CIs as the main estimator for
+the $(A,\,k)$ parameters reported in Table~\ref{tab:powerlaw}. The
+satellite-level resample is the non-parametric concession to
+within-sat correlation across the four $\Delta t$ buckets: it makes
+no parametric assumption about how an individual satellite's pairs
+covary, but it also produces no parameter for that covariance that
+a reader could inspect. The parametric counterpart is a linear
+mixed-effects (LME) fit of
+\[
+  \log_{10}\lVert\Delta\mathbf{r}\rVert \;\sim\;
+    \log_{10}(\Delta t / 1\,\text{h}) \;+\; (1 \mid \texttt{norad\_id}),
+\]
+with the random intercept absorbing per-satellite shifts in
+$\log_{10} A$ and the fixed-effect slope playing the role of the
+power-law exponent $k$. We fit this model per
+(altitude shell $\times$ pooled generation $\times$ propagator)
+cell via REML with statsmodels' default BFGS optimiser
+(\texttt{statsmodels.formula.api.mixedlm}). L-BFGS was tried
+first but collapsed the random-intercept variance to the zero
+boundary on the well-populated cells of this corpus and aliased
+the scale into the fixed-effect intercept, so the default BFGS
+optimiser is the load-bearing convergence choice here. The driver
+\texttt{python src/scripts/\_mixed\_effects.py} emits the full
+per-cell payload to
+\texttt{outputs/mixed\_effects\_results.csv} and the booktabs
+comparison fragment of Table~\ref{tab:mixed-effects} to
+\texttt{src/tex/tables/tab\_mixed\_effects.tex}.
+
+The supplement serves two purposes. First, the random-intercept
+standard deviation on $\log_{10} A$ is a directly-interpretable
+measure of the cross-satellite scatter that the bootstrap CI on
+$A$ summarises only implicitly; a cell with a large
+$\sigma_{\log_{10} A}$ has a wide bootstrap CI on $A$ for the same
+reason. Second, the fixed-effect slope $\hat{k}_{\mathrm{LME}}$ with
+its $1.96\,\mathrm{SE}$ Wald interval is the parametric analogue of
+the main-table $\hat{k}_{\mathrm{OLS}}$ with its bootstrap percentile
+CI; substantive agreement between the two estimators is the
+specific cross-check this appendix asks.
+Table~\ref{tab:mixed-effects} reports the two side by side for
+every populated cell. A reader who finds the LME slope outside the
+bootstrap CI on any cell should treat the main estimator as
+authoritative --- the percentile CI bounds the satellite-level
+resampling distribution directly, while the LME fixed-effect SE
+assumes a normal random-intercept distribution that thin or
+unbalanced cells violate.
+
+\begin{table}[ht]
+  \centering
+  \caption{Per-cell comparison of the main-text per-pair OLS slope
+  $\hat{k}_{\mathrm{OLS}}$ (with $95\%$ satellite-level bootstrap
+  percentile CI, identical procedure to Table~\ref{tab:powerlaw})
+  against the linear mixed-effects fixed-effect slope
+  $\hat{k}_{\mathrm{LME}}$ (with $1.96\,\mathrm{SE}$ Wald CI). The
+  random-intercept SD $\hat\sigma_{\log_{10} A}$ is the LME estimate
+  of the per-satellite scatter in $\log_{10} A$ that the bootstrap
+  on $A$ absorbs implicitly. One row per
+  (altitude shell $\times$ pooled generation $\times$ propagator)
+  cell that reaches the convergence guardrails
+  ($\ge 30$ pairs and $\ge 5$ satellites in the cell).}
+  \label{tab:mixed-effects}
+  \resizebox{\textwidth}{!}{\input{tables/tab_mixed_effects.tex}}
+\end{table}
 
 \section*{Data and code availability}
 \label{sec:availability}
