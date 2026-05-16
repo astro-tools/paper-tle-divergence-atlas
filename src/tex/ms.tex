@@ -1155,20 +1155,79 @@ are bit-identical across re-runs.
 \section{Results}
 \label{sec:results}
 
-[TODO: prose. H1 addressed in Figures~\ref{fig:sgp4-growth}
-and~\ref{fig:hifi-growth}; H2 in Figure~\ref{fig:propagator-scatter}.
-Captions below are placeholders pending final Results lock.]
+The locked sweep retired with $24{,}641$
+$(\mathrm{TLE}_{i},\,\mathrm{TLE}_{j})$ pairs distributed across $501$
+Starlink satellites and the four target staleness offsets
+$\Delta t \in \{6,\,24,\,72,\,168\}$~h; the GMAT manifest reports
+$24{,}641 / 24{,}641$ propagations completed with zero integration or
+preprocessing failures. The per-(altitude shell $\times$ generation)
+composition of the surviving corpus is the one already given in
+Table~\ref{tab:corpus}, and the geometric coverage of the sampled
+satellites in the three Keplerian shape elements $(a,\,e,\,i)$ is shown
+in Figure~\ref{fig:constellation-map}: the three near-vertical bands
+in semi-major axis reproduce the operational altitude shells to within
+the per-satellite station-keeping band; eccentricity is bounded at
+$\lesssim 4\times 10^{-4}$ across the entire sample (the operational
+near-circular signature of an actively phase-controlled fleet); and
+inclination clusters at the documented $43^{\circ}$, $53^{\circ}$,
+$70^{\circ}$, and $97^{\circ}$ deployment lanes, with v1.0 confined to
+the $53^{\circ}$ Group~1 shells, v1.5 spanning $43^{\circ}$ and
+$53^{\circ}$, and v2-mini populating the newer $43^{\circ}$,
+$70^{\circ}$, and $97^{\circ}$ shells. The geometric narrowness of the
+corpus in $(a,\,e)$ matters downstream: the per-cell comparisons
+reported in Sections~\ref{sec:results-h1}--\ref{sec:results-h3}
+contrast propagator skill at near-identical orbit geometry, so any
+inter-cell differences are attributable to atmosphere and platform
+properties rather than to gross variation in dynamical regime.
 
 \begin{figure}[ht]
   \centering
   \includegraphics[width=\linewidth]{figures/fig_constellation_map.pdf}
   \caption{Sampled corpus. Pairwise scatter of semi-major axis,
-  eccentricity, and inclination for the $\sim$500 Starlink satellites in
+  eccentricity, and inclination for the $501$ Starlink satellites in
   the analysis sample. Altitude shell encoded by color, generation
   encoded by marker shape; diagonal panels show marginal histograms.}
   \label{fig:constellation-map}
   \script{fig_constellation_map.py}
 \end{figure}
+
+We organise the reading of Section~\ref{sec:results} around the three
+hypotheses of Section~\ref{sec:introduction}. Pooled across the
+$24{,}641$ corpus pairs, the L$_{2}$ position error against the
+next-TLE proxy grows from a median of $0.94$~km (SGP4) /
+$1.52$~km (high-fid) at the $6$~h horizon to $11.7$ / $32.0$~km at
+$3$~d and $38.5$ / $130.9$~km at $7$~d. Section~\ref{sec:results-h1}
+parametrises that growth into the staleness curves of H1;
+Section~\ref{sec:results-h2} contrasts the two propagators pair by
+pair (H2); Section~\ref{sec:results-error-structure} resolves the
+position-error vector into its radial, along-track, and cross-track
+components; and Section~\ref{sec:results-h3} regresses the per-sat
+staleness coefficient against the daily F10.7 flux to test H3.
+
+\subsection{Staleness curves and power-law fits (H1)}
+\label{sec:results-h1}
+
+Figures~\ref{fig:sgp4-growth} and~\ref{fig:hifi-growth} show the
+per-bucket median position error and its
+$25^{\mathrm{th}}$--$75^{\mathrm{th}}$ percentile band, by altitude
+shell, on identical log-log axes and identical $y$-limits so the
+SGP4-vs-high-fid visual comparison is honest. Within the v1.x panel
+the curves separate mildly with altitude (the $540$~km shell carries
+the largest median at every $\Delta t$, consistent with drag dominance
+at the lowest altitude in the corpus); within the v2-mini panel the
+two populated shells collapse, the dominant offset being inter-cohort
+rather than inter-shell. Walking the v1.x cells from $\Delta t = 6$~h
+upwards, the SGP4 median grows from $1.01$~km
+(550~km shell) to $2.60$, $5.64$, and $15.67$~km at $1$, $3$, and
+$7$~d respectively; the high-fidelity arm tracks the same curve
+shape but sits a factor of $1.6$--$7$ higher across the same cells.
+The pattern is repeated in the v2-mini cells with steeper growth:
+$0.96 \to 4.53 \to 25.11 \to 101.71$~km on the SGP4 arm at the
+$550$~km shell, with the high-fidelity arm again above SGP4 at every
+$\Delta t$. \emph{No populated cell of the corpus shows the
+high-fidelity median below the SGP4 median} -- a statement of the H2
+finding made directly on the per-bucket aggregates before any pairwise
+analysis is undertaken in Section~\ref{sec:results-h2}.
 
 \begin{figure}[ht]
   \centering
@@ -1177,12 +1236,13 @@ Captions below are placeholders pending final Results lock.]
   $\Delta t$ since epoch, by altitude shell within
   pooled-generation panels. Light scatter shows individual
   $(\Delta t, |\Delta\mathbf{r}|)$ pairs; bold markers connected by lines
-  give the per-bucket median and the shaded band gives the 25th--75th
-  percentile range. Log-log axes; identical $y$-limits to
-  Figure~\ref{fig:hifi-growth}. The light grey vertical band marks
-  the consumer-relevant 6~h horizon (the $\pm 2$~h pair-matching
-  tolerance, Section~\ref{sec:methods-pairs}); this bucket is
-  floor-limited per Section~\ref{sec:background-truth-floor}.}
+  give the per-bucket median and the shaded band gives the
+  $25^{\mathrm{th}}$--$75^{\mathrm{th}}$ percentile range. Log-log axes;
+  identical $y$-limits to Figure~\ref{fig:hifi-growth}. The light grey
+  vertical band marks the consumer-relevant 6~h horizon (the
+  $\pm 2$~h pair-matching tolerance,
+  Section~\ref{sec:methods-pairs}); this bucket is floor-limited
+  per Section~\ref{sec:background-truth-floor}.}
   \label{fig:sgp4-growth}
   \script{fig_sgp4_growth.py}
 \end{figure}
@@ -1198,29 +1258,44 @@ Captions below are placeholders pending final Results lock.]
   \script{fig_hifi_growth.py}
 \end{figure}
 
-\begin{figure}[ht]
-  \centering
-  \includegraphics[width=\linewidth]{figures/fig_propagator_scatter.pdf}
-  \caption{SGP4 vs.\ high-fidelity error per pair, at fixed $\Delta t$
-  buckets (rows) and altitude shells (columns). Color encodes pooled
-  generation; the dashed $y = x$ line marks parity, so points below are
-  pairs where the high-fidelity model beat SGP4 in 3D L$_{2}$ norm. The
-  per-panel label in each lower-right corner reports the fraction of
-  cell pairs below the diagonal (``hi-fid wins''), the same definition
-  used in the win-fraction discussion of
-  Section~\ref{sec:discussion}. A hexbin density variant of the same
-  data is in Appendix~\ref{app:propagator-scatter-hexbin}
-  (Figure~\ref{fig:propagator-scatter-hexbin}).}
-  \label{fig:propagator-scatter}
-  \script{fig_propagator_scatter.py}
-\end{figure}
+The curves are well-fit by the H1 form
+$\lVert\Delta\mathbf{r}(\Delta t)\rVert \approx A\,\Delta t^{k}$ at
+the per-pair level (Section~\ref{sec:methods-statistics}).
+Figure~\ref{fig:powerlaw-fits} renders the fitted parameters per
+(altitude shell $\times$ pooled generation) cell with $95\%$
+satellite-level bootstrap CIs; the numerical values are listed in
+Table~\ref{tab:powerlaw}. Three patterns survive the bootstrap.
+First, on the v1.x cohort SGP4 yields a sub-linear exponent
+($\hat k$ ranges from $0.75$~$[0.69,\,0.83]$ at $550$~km through
+$0.84$~$[0.82,\,0.87]$ at $540$~km to $0.86$~$[0.82,\,0.89]$ at
+$560$~km), while the high-fidelity arm in the same cells yields
+super-linear exponents from $1.14$~$[1.08,\,1.20]$ at $550$~km to
+$1.43$~$[1.41,\,1.45]$ at $540$~km. The likelihood-ratio test rejects
+both $k = 1$ and $k = 2$ nulls at $p < 10^{-3}$ in every populated
+cell, so neither limiting case of
+Section~\ref{sec:methods-powerlaw-physics} suffices on its own; the
+mixture interpretation, with $\hat k \in (1,\,2)$ encoding the
+relative weight of a $B^{\!\star}$ mean-motion bias versus a
+constant unmodelled along-track acceleration, is the physically
+consistent reading. Second, the two propagators trade $A$ for $k$
+in opposite directions across the v1.x cells: high-fid carries the
+smaller coefficient at the $\Delta t = 1$~h normalisation point (the
+bolded entries of Table~\ref{tab:powerlaw}) but the steeper slope, so
+the two staleness curves cross within the corpus window and the
+gap of Figures~\ref{fig:sgp4-growth}--\ref{fig:hifi-growth} widens
+with $\Delta t$. Third, the v2-mini cohort is super-linear under
+\emph{both} propagators ($\hat k$ between $1.26$ and $1.44$), with
+SGP4 carrying the smaller coefficient at $\Delta t = 1$~h but the
+steeper slope -- the only cells of the corpus where the propagator
+with the smaller $A$ is also the propagator with the larger $k$, and
+where the staleness curves diverge rather than crossing.
 
 \begin{figure}[ht]
   \centering
   \includegraphics[width=\linewidth]{figures/fig_powerlaw_fits.pdf}
   \caption{Power-law fits $\|\Delta\mathbf{r}\| \approx A \cdot \Delta t^{k}$
   per (altitude shell $\times$ pooled generation) cell. Bars show the
-  point estimate; vertical lines give 95\% bootstrap percentile CIs
+  point estimate; vertical lines give $95\%$ bootstrap percentile CIs
   from $1{,}000$ resamples drawing satellites with replacement and
   pooling all of each drawn satellite's pairs in the cell, per the
   estimator specification in Section~\ref{sec:methods-statistics}. The
@@ -1252,21 +1327,206 @@ Captions below are placeholders pending final Results lock.]
   \script{fig_powerlaw_fits.py}
 \end{table}
 
+H1 is therefore not merely supported but \emph{quantified}: every
+populated cell of the corpus carries a statistically distinguishable
+power-law staleness curve, the per-cell $(A,\,k)$ pair varies
+systematically and interpretably across (shell $\times$ generation),
+and the cohort-specific values of Table~\ref{tab:powerlaw} are the
+practitioner-facing summary the analysis is built to provide.
+The behaviour above the truth-floor regime of
+Section~\ref{sec:background-truth-floor} -- $\Delta t \gtrsim 1$~d, where
+the observed error climbs into double-digit kilometres and the
+OD-residual contribution becomes percent-level -- carries the
+load-bearing fits; the $6$~h cell is reported alongside for the
+operational completeness already documented in §\ref{sec:methods-pairs}
+but is interpreted in
+Section~\ref{sec:discussion} against the
+Section~\ref{sec:background-truth-floor} floor.
+
+\subsection{Pair-by-pair propagator comparison (H2)}
+\label{sec:results-h2}
+
+The aggregate statistics of Section~\ref{sec:results-h1} compare
+medians; H2 asks the sharper pair-wise question: in what fraction of
+$(\mathrm{TLE}_{i},\,\mathrm{TLE}_{j})$ pairs is the high-fidelity
+$|\Delta\mathbf{r}|$ smaller than the SGP4 $|\Delta\mathbf{r}|$ against
+the same proxy truth? Figure~\ref{fig:propagator-scatter} plots every
+pair on the $(|\Delta\mathbf{r}_{\mathrm{SGP4}}|,\,
+|\Delta\mathbf{r}_{\mathrm{hifi}}|)$ plane, broken out by altitude
+shell (columns) and $\Delta t$ bucket (rows). Each panel's lower-right
+annotation reports the fraction of pairs sitting below the $y = x$
+diagonal (``hi-fid wins''); the bootstrap-quantified per-cell version
+of that fraction, together with the along-track-only variant
+$|\Delta r_{\mathrm{along},\,\mathrm{hifi}}| <
+|\Delta r_{\mathrm{along},\,\mathrm{SGP4}}|$ that
+Figure~\ref{fig:error-decomposition} below motivates as the natural
+metric in the long-$\Delta t$ regime, is given in
+Table~\ref{tab:propagator-wins}.
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\linewidth]{figures/fig_propagator_scatter.pdf}
+  \caption{SGP4 vs.\ high-fidelity error per pair, at fixed $\Delta t$
+  buckets (rows) and altitude shells (columns). Color encodes pooled
+  generation; the dashed $y = x$ line marks parity, so points below are
+  pairs where the high-fidelity model beat SGP4 in 3D L$_{2}$ norm. The
+  per-panel label in each lower-right corner reports the fraction of
+  cell pairs below the diagonal (``hi-fid wins''); a bootstrap-quantified
+  per-cell version of the same fraction (plus an along-track-only
+  variant) is in Table~\ref{tab:propagator-wins}. A hexbin density
+  variant of the same scatter is in
+  Appendix~\ref{app:propagator-scatter-hexbin}
+  (Figure~\ref{fig:propagator-scatter-hexbin}).}
+  \label{fig:propagator-scatter}
+  \script{fig_propagator_scatter.py}
+\end{figure}
+
+\begin{table}[ht]
+  \centering
+  \caption{Per-cell fraction of $(\mathrm{TLE}_{i},\,\mathrm{TLE}_{j})$
+  pairs on which the high-fidelity propagator achieves a smaller
+  position error than SGP4 against the next-TLE proxy. The 3D
+  L$_{2}$ column reads ``$\lVert\Delta\mathbf{r}_{\mathrm{hifi}}\rVert
+  < \lVert\Delta\mathbf{r}_{\mathrm{SGP4}}\rVert$'' (the metric
+  underlying Figure~\ref{fig:propagator-scatter}); the along-track
+  column reads
+  ``$\lvert\Delta r_{\mathrm{along},\,\mathrm{hifi}}\rvert <
+  \lvert\Delta r_{\mathrm{along},\,\mathrm{SGP4}}\rvert$'' on the
+  RSW component of Figure~\ref{fig:error-decomposition}. Both
+  fractions carry $95\%$ satellite-level percentile bootstrap CIs
+  ($1{,}000$ resamples drawing satellites with replacement and pooling
+  all of each drawn satellite's pairs in the cell; identical
+  resampling structure to Table~\ref{tab:powerlaw}). Per-cell rows
+  with fewer than $30$ pairs are suppressed; pooled-per-$\Delta t$
+  rows aggregate across all shells and generations.}
+  \label{tab:propagator-wins}
+  \input{tables/tab_propagator_wins.tex}
+\end{table}
+
+Pooled across all cells, the high-fidelity arm beats SGP4 on
+$31.4\%$~$[29.9,\,32.8]$ of $6$~h pairs in 3D L$_{2}$ norm, falling to
+$21.0\%$~$[20.0,\,21.9]$ at $1$~d, $20.6\%$~$[18.6,\,22.6]$ at $3$~d,
+and $18.6\%$~$[16.1,\,21.3]$ at $7$~d. The along-track variant
+sits within sampling error of the L$_{2}$ variant at every horizon
+except $6$~h, where it climbs to $34.7\%$~$[33.1,\,36.4]$: at the
+shortest horizon the cross-track and radial components of
+$\Delta\mathbf{r}$ are still appreciable contributions to the L$_{2}$
+norm (see Section~\ref{sec:results-error-structure} below), while at
+$\geq 1$~d the L$_{2}$ comparison is already an along-track comparison
+in disguise, and the two metrics return the same fraction within the
+bootstrap CI. Either way SGP4 wins on $\sim\!65$--$80\%$ of pairs
+across the corpus, which is the per-pair statement of the H2 negative
+finding.
+
+The per-cell decomposition exposes a strong cohort dependence behind
+the pooled numbers. At $540$~km the high-fidelity-wins fraction
+collapses from $33.5\%$~$[31.2,\,35.7]$ at $6$~h to
+$1.7\%$~$[1.0,\,2.6]$ at $7$~d: as $\Delta t$ grows the high-fidelity
+arm at the lowest shell saturates against a propagation floor
+visible in Figure~\ref{fig:propagator-scatter} as the
+``$|\Delta\mathbf{r}_{\mathrm{hifi}}|$ horizontal band'' centred near
+$100$--$200$~km in the $3$~d and $7$~d panels, while the SGP4
+distribution remains spread over three decades. That signature is
+the joint fingerprint of a near-constant force-model bias on the
+high-fidelity arm (drag mismodelling on the lowest-altitude cohort)
+and a wider operator-OD-residual distribution on SGP4 -- the
+combination yields a stripe of paired points whose ordinate is
+nearly $\Delta t$-determined and whose abscissa varies. At $550$~km
+the high-fidelity-wins fraction is qualitatively different: it stays
+between $24$ and $36\%$ across all four staleness horizons, with
+$35.9\%$~$[31.3,\,41.0]$ at $7$~d carried predominantly by the
+v2-mini cohort whose larger ballistic-coefficient scale lifts the
+SGP4 floor enough to admit a competitive high-fidelity arm. This
+is the only cell of the corpus where the high-fidelity wins
+fraction at $7$~d sits well above the $\sim 10\%$ baseline of the
+pooled long-$\Delta t$ behaviour and is visible in
+Figure~\ref{fig:propagator-scatter} as a clear v2-mini-dominated
+plume reaching below the diagonal. At $560$~km the comparable
+v2-mini wedge is weaker -- the cell's $7$~d high-fidelity-wins
+fraction is $10.0\%$~$[7.6,\,12.5]$ -- but the cohort sign is
+consistent with the $550$~km result.
+
+H2 therefore holds with the reading: the high-fidelity propagator
+initialised from public TLEs does not improve on SGP4 in the bulk
+of the corpus, and the pooled win fraction is statistically distant
+from the $50\%$ null at every $\Delta t$. The one cohort-specific
+exception -- v2-mini at $550$~km at $\Delta t = 7$~d -- is the
+regime where the SGP4 cohort itself struggles most (the steep
+super-linear $\hat k = 1.44$ of Table~\ref{tab:powerlaw}), making
+even an inherently biased high-fidelity propagator competitive on
+a non-trivial fraction of pairs. Section~\ref{sec:discussion}
+decomposes the bulk negative result into three distinct
+mechanisms.
+
+\subsection{Error decomposition}
+\label{sec:results-error-structure}
+
+Figure~\ref{fig:error-decomposition} resolves $\Delta\mathbf{r}$ into
+the standard radial, along-track, and cross-track components in the
+next-TLE-proxy RSW frame (Section~\ref{sec:methods-metrics}). The
+along-track median sits a clean two decades above the cross-track
+and radial medians at every $\Delta t$ bucket and in every populated
+cohort, and the gap widens with $\Delta t$. On the v1.x cohort,
+along-track grows roughly $1 \to 4 \to 6 \to 16$~km from $6$~h to
+$7$~d on the SGP4 arm; the v2-mini cohort grows $1 \to 4 \to 22 \to
+96$~km on the same arm and reaches $\sim 100$~km at $7$~d on the
+high-fidelity arm. Over the same horizons the cross-track and
+radial medians grow from $\mathcal{O}(0.03$--$0.1)$~km at $6$~h to
+$\mathcal{O}(0.3$--$1)$~km at $7$~d, two decades below the
+along-track band throughout. By $\Delta t = 7$~d, the L$_{2}$ norm
+of Figures~\ref{fig:sgp4-growth}--\ref{fig:hifi-growth} and the
+along-track component of Figure~\ref{fig:error-decomposition} are
+indistinguishable within the line widths of the figure: at the
+long-staleness limit, the L$_{2}$ position error \emph{is} the
+along-track error.
+
 \begin{figure}[ht]
   \centering
   \includegraphics[width=\linewidth]{figures/fig_error_decomposition.pdf}
   \caption{Error decomposition into along-track, cross-track, and radial
   components of $\Delta\mathbf{r}$ in the next-TLE-proxy RSW frame.
   Per-bucket medians with IQR ribbons; solid lines are SGP4, dashed
-  lines are high-fidelity; color encodes pooled generation. Confirms
-  the along-track-dominant character of long-$\Delta t$ error. The
-  along-track panel carries a secondary y-axis in seconds of orbital
-  phase, converted by $\Delta t_{\rm{phase}} = \Delta s / v_{c}$ at the
-  550~km circular-orbit speed $v_{c} = \sqrt{\mu / (R_{\oplus} +
-  550\,\text{km})} \approx 7.59$~km\,s$^{-1}$, the central-shell value.}
+  lines are high-fidelity; color encodes pooled generation. The
+  along-track panel carries a secondary $y$-axis in seconds of
+  orbital phase, converted by $\Delta t_{\rm{phase}} = \Delta s / v_{c}$
+  at the $550$~km circular-orbit speed
+  $v_{c} = \sqrt{\mu / (R_{\oplus} + 550\,\text{km})} \approx
+  7.59$~km\,s$^{-1}$, the central-shell value.}
   \label{fig:error-decomposition}
   \script{fig_error_decomposition.py}
 \end{figure}
+
+The decomposition gives the
+along-track-norm in operationally meaningful units:
+$1$~km of along-track displacement at the $550$~km shell's circular
+speed $v_{c} \approx 7.59$~km\,s$^{-1}$ corresponds to
+$\sim 0.13$~s of orbital phase, marked on the secondary axis of the
+along-track panel. The $6$~h headline median of $\sim 1$~km from
+Section~\ref{sec:results-h1} is therefore a sub-orbit-second timing
+miss along the velocity direction, while the $7$~d high-fidelity
+median of $\sim 130$~km corresponds to $\sim 17$~s of phase.
+Cross-track and radial components -- bounded under the dominant LEO
+perturbations by orbital-period oscillation and second-order coupling
+\citep[\S\,3.4]{vallado2013} -- accumulate freely over neither
+horizon, and the SGP4 and high-fidelity dashed lines on those two
+panels overlay each other within the IQR ribbons. The H2 propagator
+gap is therefore an along-track gap; the discussion in
+Section~\ref{sec:discussion-along-track} returns to why.
+
+\subsection{Solar modulation (H3)}
+\label{sec:results-h3}
+
+H3 asks whether the per-satellite SGP4 staleness coefficient $A_{i}$
+of Section~\ref{sec:methods-statistics} tracks the daily-observed
+F10.7 flux in the most drag-sensitive cohorts.
+Figure~\ref{fig:solar-modulation} plots the per-sat $A_{i}$ scatter
+against the per-sat mean of the CelesTrak daily F10.7 over the
+satellite's window of starting epochs, one panel per altitude shell,
+and overlays the additive ANCOVA fit of Eq.~\eqref{eq:h3-model}
+(one dashed line per generation present, sharing the fitted slope
+$\hat\beta$ across cohorts and absorbing inter-cohort offsets into
+$\hat\alpha_{\mathrm{gen}}$ as predicted by
+Eq.~\eqref{eq:h3-slope-altitude-only}).
 
 \begin{figure}[ht]
   \centering
@@ -1295,6 +1555,58 @@ Captions below are placeholders pending final Results lock.]
   \label{fig:solar-modulation}
   \script{fig_solar_modulation.py}
 \end{figure}
+
+The headline daily-F10.7 fit returns
+$\hat\beta = +0.0173$~sfu$^{-1}$ with a $95\%$ percentile bootstrap CI
+of $[-0.0021,\,+0.0361]$ and $p = 0.07$ at $540$~km
+($n = 167$ sats, v1.x only at this shell, $R^{2} = 0.02$);
+$\hat\beta = -0.0095$~sfu$^{-1}$ with CI $[-0.0290,\,+0.0092]$ and
+$p = 0.31$ at $550$~km ($n = 165$ sats across both cohorts,
+$R^{2} = 0.45$, of which the bulk is the
+$\hat\alpha_{\mathrm{v2\text{-}mini}}
+- \hat\alpha_{\mathrm{v1.x}} = -0.54$ intercept gap absorbed by the
+ANCOVA covariate); and $\hat\beta = +0.0140$~sfu$^{-1}$ with CI
+$[+0.0009,\,+0.0310]$ and $p = 0.034$ at $560$~km ($n = 156$,
+$R^{2} = 0.24$). Only the $560$~km cell clears conventional
+significance on the daily-mean predictor; the $540$~km cell is
+positive and direction-consistent with the
+$\partial\,\log\rho / \partial\,\mathrm{F}10.7 > 0$ expectation at
+LEO but does not exclude zero at the corpus's narrow F10.7 lever
+of $\sim 17$~sfu across satellites. The $550$~km cell returns a slope
+indistinguishable from zero, and the partial-$F$ interaction test
+fails to reject the additive restriction ($p = 0.69$), so the
+across-cohort common-slope assumption of
+Eq.~\eqref{eq:h3-slope-altitude-only} is consistent with the data at
+that shell.
+
+The $560$~km interaction test does reject the additive restriction
+($p = 0.005$), indicating a cohort-specific F10.7 response at that
+shell that Eq.~\eqref{eq:h3-slope-altitude-only} does not predict.
+The departure is flagged in Section~\ref{sec:discussion} as either
+a real second-order effect of the v2-mini bus or a window-end
+sampling pattern interacting with the F10.7 trend over the analysis
+window; the additive headline slope at $560$~km remains the
+$\hat\beta$ that
+Eq.~\eqref{eq:h3-slope-altitude-only} concerns directly, and we
+report it without substitution by the interaction model.
+
+The $81$-day-centred robustness fits, reported per-shell in
+Section~\ref{sec:methods-h3-regression}, return slopes that are
+physically wrong-signed at $550$ and $560$~km (negative on a quantity
+whose thermospheric-density gradient is uniformly positive at LEO)
+and reach nominal significance only because the predictor's
+$\sim 1.3$~sfu span across satellites is dominated by where in
+April~2026 each satellite's starting epochs cluster rather than by a
+genuine solar-driver signal. We treat those fits as the
+limit-of-leverage diagnostic they are -- documented in
+Section~\ref{sec:methods-h3-regression} alongside the
+daily-mean fit -- and the daily-mean $\hat\beta$ of
+Figure~\ref{fig:solar-modulation} as the load-bearing H3 report on
+the present 30-day corpus. H3 is therefore detectable in direction
+across the two cells where the analysis has discriminating power
+(positive $\hat\beta$ at $540$ and $560$~km, the two shells with the
+broadest within-cohort F10.7 lever) but is statistically distinct
+from zero only at one of them.
 
 \section{Discussion}
 \label{sec:discussion}
