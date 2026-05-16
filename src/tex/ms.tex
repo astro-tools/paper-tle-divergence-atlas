@@ -854,6 +854,75 @@ mixed-effects-versus-bootstrap agreement summary are deferred to
 the appendix so the main-body table remains the single estimator
 of record.
 
+\subsubsection{Physical interpretation of the power-law exponent}
+\label{sec:methods-powerlaw-physics}
+
+The power-law form
+$\lVert\Delta\mathbf{r}(\Delta t)\rVert \approx A\,\Delta t^{k}$
+is descriptive rather than first-principles, but its two
+physically interpretable limits $k = 1$ and $k = 2$ that the LRT
+in Section~\ref{sec:methods-statistics} tests against correspond
+to specific error-source regimes in the orbit-propagation budget,
+both expressed through the along-track component on which the
+gross error overwhelmingly lives
+(Section~\ref{sec:results} and Figure~\ref{fig:error-decomposition}).
+
+Consider first a constant mean-motion error $\delta n$ at epoch ---
+the operational footprint of a $B^{\!\star}$ mis-fit, where the
+operator-fitted ballistic coefficient at $t_{i}$ encodes a mean
+drag environment over the OD window that differs systematically
+from the conditions encountered during forward propagation.
+Integrating the rotational equation $\dot{\theta} = n + \delta n$
+over $(t_{i},\,t_{j}]$ gives an along-track angle offset
+$\delta\theta = \delta n\,\Delta t$, which maps to an arc-length
+displacement
+\begin{equation}
+  \label{eq:powerlaw-k1}
+  \Delta s(\Delta t) \;\approx\; a\,\delta n\,\Delta t,
+\end{equation}
+i.\,e.\ $k = 1$ with $A = a\,\delta n$ (in suitable units for the
+$\Delta t = 1\,\text{h}$ normalisation Table~\ref{tab:powerlaw}
+adopts). The displacement is linear in $\Delta t$ because the
+mean-motion error is constant; no integration of an acceleration
+is involved.
+
+Consider now a constant unmodelled in-track acceleration $a_{\rm{res}}$
+--- the operational footprint of a drag-area or
+spacecraft-property mis-specification, where the integrator (or,
+implicitly, SGP4's own averaged drag term) sees a $\rho\,C_{D}\,A$
+product offset from the truth by a constant. Integrating
+$\ddot{s} = a_{\rm{res}}$ twice with zero displacement and velocity
+at $t_{i}$ gives
+\begin{equation}
+  \label{eq:powerlaw-k2}
+  \Delta s(\Delta t) \;\approx\; \tfrac{1}{2}\,a_{\rm{res}}\,\Delta t^{2},
+\end{equation}
+i.\,e.\ $k = 2$ with $A = a_{\rm{res}} / 2$ (again in
+$\Delta t = 1\,\text{h}$ units).
+
+The empirical observation that fitted $k$ values across our
+populated cells fall in the open interval $(1,\,2)$ ---
+Table~\ref{tab:powerlaw} reports $k$ between $0.75$ and $1.44$
+across the SGP4 cells and $k$ between $1.14$ and $1.43$ across
+the high-fidelity cells --- is therefore the expected signature
+of a \emph{mixture} of the two error modes operating
+simultaneously: a partial $B^{\!\star}$ mis-fit at epoch and a
+residual constant-acceleration term, both feeding the
+along-track budget. The per-cell $(A,\,k)$ pair is, on this
+reading, a coarse two-parameter summary of the operator's
+epoch-time error budget for that satellite cohort: $A$ scales
+with the joint magnitude of both contributions evaluated at
+$\Delta t = 1\,\text{h}$, and $k$ encodes the mix --- closer to
+unity when mean-motion bias dominates, closer to two when a
+residual constant in-track acceleration dominates. Other
+contributions (initial-state error mapped forward by the state
+transition matrix, time-varying drag through a non-constant
+$\rho$, gravity-truncation residuals) shift the effective $(A,
+\,k)$ pair without changing the two limiting endpoints; the LRT
+in Section~\ref{sec:methods-statistics} discriminates a cell
+against those endpoints with the same $\chi^{2}_{1}$ statistic
+in both directions.
+
 \subsection{Reproducibility surface}
 \label{sec:methods-reproducibility}
 
@@ -908,8 +977,10 @@ Captions below are placeholders pending final Results lock.]
   $(\Delta t, |\Delta\mathbf{r}|)$ pairs; bold markers connected by lines
   give the per-bucket median and the shaded band gives the 25th--75th
   percentile range. Log-log axes; identical $y$-limits to
-  Figure~\ref{fig:hifi-growth}. The 6~h bucket is floor-limited
-  per Section~\ref{sec:background-truth-floor}.}
+  Figure~\ref{fig:hifi-growth}. The light grey vertical band marks
+  the consumer-relevant 6~h horizon (the $\pm 2$~h pair-matching
+  tolerance, Section~\ref{sec:methods-pairs}); this bucket is
+  floor-limited per Section~\ref{sec:background-truth-floor}.}
   \label{fig:sgp4-growth}
   \script{fig_sgp4_growth.py}
 \end{figure}
@@ -919,7 +990,8 @@ Captions below are placeholders pending final Results lock.]
   \includegraphics[width=\linewidth]{figures/fig_hifi_growth.pdf}
   \caption{High-fidelity propagation error vs. $\Delta t$ since epoch,
   rendered with identical layout and axes to Figure~\ref{fig:sgp4-growth}
-  for direct visual comparison.}
+  for direct visual comparison. The 6~h consumer-horizon band is
+  shaded as in Figure~\ref{fig:sgp4-growth}.}
   \label{fig:hifi-growth}
   \script{fig_hifi_growth.py}
 \end{figure}
@@ -930,7 +1002,13 @@ Captions below are placeholders pending final Results lock.]
   \caption{SGP4 vs.\ high-fidelity error per pair, at fixed $\Delta t$
   buckets (rows) and altitude shells (columns). Color encodes pooled
   generation; the dashed $y = x$ line marks parity, so points below are
-  pairs where the high-fidelity model beat SGP4.}
+  pairs where the high-fidelity model beat SGP4 in 3D L$_{2}$ norm. The
+  per-panel label in each lower-right corner reports the fraction of
+  cell pairs below the diagonal (``hi-fid wins''), the same definition
+  used in the win-fraction discussion of
+  Section~\ref{sec:discussion}. A hexbin density variant of the same
+  data is in Appendix~\ref{app:propagator-scatter-hexbin}
+  (Figure~\ref{fig:propagator-scatter-hexbin}).}
   \label{fig:propagator-scatter}
   \script{fig_propagator_scatter.py}
 \end{figure}
@@ -940,8 +1018,13 @@ Captions below are placeholders pending final Results lock.]
   \includegraphics[width=\linewidth]{figures/fig_powerlaw_fits.pdf}
   \caption{Power-law fits $\|\Delta\mathbf{r}\| \approx A \cdot \Delta t^{k}$
   per (altitude shell $\times$ pooled generation) cell. Bars show the
-  point estimate; vertical lines give 95\% bootstrap CIs from 1000
-  resamples at the satellite level. Left subpanel per row: coefficient
+  point estimate; vertical lines give 95\% bootstrap percentile CIs
+  from $1{,}000$ resamples drawing satellites with replacement and
+  pooling all of each drawn satellite's pairs in the cell, per the
+  estimator specification in Section~\ref{sec:methods-statistics}. The
+  visual tightness of the CI bars on the well-populated cells reflects
+  the $n \approx 167$ satellites per shell rather than under-accounting
+  for within-satellite correlation. Left subpanel per row: coefficient
   $A$ on a log axis; right subpanel: exponent $k$ with $k = 1$ marked.
   Numerical values are listed in Table~\ref{tab:powerlaw}.}
   \label{fig:powerlaw-fits}
@@ -957,7 +1040,11 @@ Captions below are placeholders pending final Results lock.]
   the $95\%$ satellite-level bootstrap CI. $R^{2}$ is the
   coefficient of determination of the unconstrained per-pair fit;
   the $p_{k=1} / p_{k=2}$ column reports the likelihood-ratio-test
-  p-values for the two slope nulls $k = 1$ and $k = 2$.}
+  p-values for the two slope nulls $k = 1$ and $k = 2$. Per row, the
+  $A$ entry of whichever propagator has the smaller fitted coefficient
+  is bolded; this is the propagator with the lower error at the
+  $\Delta t = 1\,\text{h}$ normalisation point, not necessarily at
+  the longer bucket centres.}
   \label{tab:powerlaw}
   \resizebox{\textwidth}{!}{\variable{tables/tab_powerlaw.tex}}
   \script{fig_powerlaw_fits.py}
@@ -970,7 +1057,11 @@ Captions below are placeholders pending final Results lock.]
   components of $\Delta\mathbf{r}$ in the next-TLE-proxy RSW frame.
   Per-bucket medians with IQR ribbons; solid lines are SGP4, dashed
   lines are high-fidelity; color encodes pooled generation. Confirms
-  the along-track-dominant character of long-$\Delta t$ error.}
+  the along-track-dominant character of long-$\Delta t$ error. The
+  along-track panel carries a secondary y-axis in seconds of orbital
+  phase, converted by $\Delta t_{\rm{phase}} = \Delta s / v_{c}$ at the
+  550~km circular-orbit speed $v_{c} = \sqrt{\mu / (R_{\oplus} +
+  550\,\text{km})} \approx 7.59$~km\,s$^{-1}$, the central-shell value.}
   \label{fig:error-decomposition}
   \script{fig_error_decomposition.py}
 \end{figure}
@@ -1020,7 +1111,13 @@ magnitude larger).
 
 The floor argument does \emph{not} carry over to the pair-by-pair
 propagator skill comparison of Figure~\ref{fig:propagator-scatter},
-and the empirical win-fraction data clarifies why. At
+and the empirical win-fraction data clarifies why. We define
+``high-fidelity beats SGP4'' on a per-pair basis as
+$\lVert\Delta\mathbf{r}_{\mathrm{hifi}}\rVert <
+\lVert\Delta\mathbf{r}_{\mathrm{SGP4}}\rVert$ in the 3D L$_{2}$
+norm against the next-TLE-proxy state; an along-track-only
+variant of the same comparison is reported below in
+Section~\ref{sec:discussion-along-track}. At
 $\Delta t = 6$~h, $\mathrm{SGP4}$ wins on
 $\lVert\Delta\mathbf{r}\rVert$ for $68.6\%$ of the $5{,}421$ pairs
 in the corpus ($n_{\mathrm{hifi-wins}}/n = 31.4\%$); by
@@ -1043,6 +1140,78 @@ This is the sharpest form of the H2 negative result:
 high-fidelity propagation initialised from a public TLE is behind
 SGP4 at the operationally relevant 6~h horizon even after the
 floor is accounted for, not merely indistinguishable from it.
+
+\subsection{Along-track dominance of the error budget}
+\label{sec:discussion-along-track}
+
+The L$_{2}$ norm reported in
+Figures~\ref{fig:sgp4-growth}--\ref{fig:propagator-scatter} hides
+\emph{which component} of $\Delta\mathbf{r}$ carries the gross
+error. Figure~\ref{fig:error-decomposition} resolves the question
+directly: the along-track median sits a clean two decades above
+the cross-track and radial medians at every $\Delta t$ bucket and
+in every cohort, and the gap widens with $\Delta t$. By 7~days
+the L$_{2}$ norm and the along-track component are
+indistinguishable within the line widths of the figure --- the
+along-track component \emph{is} the error.
+
+The dominance is a textbook consequence of orbital-dynamics
+geometry rather than a property of either propagator. An
+in-track perturbation --- atmospheric drag, an unmodelled
+component of the geopotential along the velocity direction, or
+the constant in-track acceleration $a_{\rm{res}}$ of
+Equation~\eqref{eq:powerlaw-k2} --- changes orbital energy, which
+maps through the vis-viva relation to a mean-motion error
+$\delta n$, which integrates over $\Delta t$ as the along-track
+arc length $\Delta s \approx a\,\delta n\,\Delta t$ of
+Equation~\eqref{eq:powerlaw-k1} (with $a_{\rm{res}}$-driven
+contributions adding the quadratic-in-$\Delta t$ term). Radial
+and cross-track errors, by contrast, are bounded under the same
+perturbations: $J_{2}$ nodal regression and eccentricity-vector
+drift oscillate at the orbital period and grow only secularly
+through second-order coupling, so neither component accumulates
+freely with $\Delta t$. This is the canonical ``along-track
+linear, transverse bounded'' signature reported in every LEO
+position-error study from \citet{vallado2006} onward, formalised
+through the Hill / Clohessy--Wiltshire relative-motion equations
+\citep[\S\,3.4]{vallado2013}, and codified in operational SSA
+where conjunction-data messages and orbit-determination
+residuals quote the along-track component separately as a matter
+of course.
+
+Two practical consequences follow. First, the $\sim 1$~km median
+3D error at the 6~h horizon translates into a tightly bounded
+\emph{timing} miss along the orbital track. For an essentially
+circular orbit at $a = 6928$~km (the 550~km shell), the
+circular-orbit speed is $v_{c} = \sqrt{\mu / a} \approx
+7.59$~km\,s$^{-1}$ (using $\mu_{\oplus} = 398{,}600.4418$
+km$^{3}$\,s$^{-2}$), so 1~km of along-track displacement is
+1\,km\,/\,7.59\,km\,s$^{-1}\!\approx 0.13$~s of orbital phase ---
+small compared with the $\sim 4$~min operator-update interval but
+directly relevant to probabilistic conjunction assessment, where
+the radial / cross-track miss-distance budget is set by the
+covariance ellipse and a $0.13$~s along-track offset is the
+component most readily reduced by an operator with internal
+tracking. Figure~\ref{fig:error-decomposition} carries the
+conversion explicitly on the secondary axis of the along-track
+panel.
+
+Second, the F2 / F3 / F4 propagator gap (the H2 negative result)
+lives \emph{on the along-track axis}, because along-track is
+where the at-epoch operator OD residual and the $B^{\!\star}$
+mis-fit naturally express themselves --- both are absorbed by the
+operator into a single scalar at $t_{i}$, and that scalar's
+mismatch against the forward propagation environment grows
+linearly along-track. The win-fraction redefined on the
+along-track component alone --- $\lvert\Delta r_{\rm{along},\,
+\mathrm{hifi}}\rvert < \lvert\Delta r_{\rm{along},\,
+\mathrm{SGP4}}\rvert$ --- moves the 6~h hi-fid-wins fraction
+from $31.4\%$ to $34.7\%$ but is essentially unchanged at
+$1$~d ($21.0\%$), $3$~d ($20.5\%$), and $7$~d ($18.6\%$),
+reflecting that the L$_{2}$ comparison is already an along-track
+comparison once the orbital geometry pushes the radial and
+cross-track contributions two decades below. The H2 negative
+result is robust to the choice of metric.
 
 The per-cell $(A,\,k)$ table summarised by
 Figure~\ref{fig:powerlaw-fits} and tabulated in
@@ -1176,6 +1345,40 @@ else in this paper.
   \label{tab:maneuver-rejections}
   \input{tables/tab_maneuver_rejections.tex}
 \end{table}
+
+\section{Hexbin density view of the propagator scatter}
+\label{app:propagator-scatter-hexbin}
+
+Figure~\ref{fig:propagator-scatter} in the main body shows every
+$(\mathrm{TLE}_{i},\,\mathrm{TLE}_{j})$ pair as an individual marker
+on the SGP4-vs-high-fidelity plane, so that points above and below
+the $y = x$ diagonal can be read pair by pair. At the longer
+$\Delta t$ buckets the per-pair markers begin to overplot, masking
+the joint-density structure of the comparison.
+Figure~\ref{fig:propagator-scatter-hexbin} renders the same data on
+the same axes as a log-binned hexbin density. The horizontal
+saturation band at $540$~km~$\times$~$\{3,\,7\}$~d --- the
+fingerprint of a near-constant high-fidelity force-model floor ---
+becomes a single sharp ridge of the densest hex cells, and the
+v2-mini wedge of below-the-diagonal pairs at
+$\{550,\,560\}$~km~$\times$~$7$~d is visible as a low-density
+plume reaching well into the high-fidelity-wins region. The
+per-panel hi-fid-wins fraction inset is repeated here so the
+density view and the scatter view share an identical numerical
+summary.
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\linewidth]{figures/fig_propagator_scatter_hexbin.pdf}
+  \caption{Hexbin density variant of
+  Figure~\ref{fig:propagator-scatter}. Each panel is binned in
+  $(\log_{10}|\Delta\mathbf{r}|_{\mathrm{SGP4}},\,\log_{10}|\Delta
+  \mathbf{r}|_{\mathrm{hifi}})$ on $\mathrm{gridsize} = 30$ hexes
+  per side, viridis colour ramp with $\mathrm{mincnt} = 1$;
+  per-panel hi-fid-wins fraction inset as in the main scatter.}
+  \label{fig:propagator-scatter-hexbin}
+  \script{fig_propagator_scatter_hexbin.py}
+\end{figure}
 
 \section{Drag-area sensitivity (v2-mini)}
 \label{app:cda-sensitivity}

@@ -43,6 +43,12 @@ PROPAGATORS = (
 )
 MIN_PAIRS_PER_BUCKET = 3
 
+# Circular-orbit speed at the 550 km central shell:
+# v_c = sqrt(mu / (R_E + h)) with mu = 398600.4418 km^3/s^2 and
+# R_E + h = 6928.137 km. Used to convert the along-track km axis to
+# seconds of orbital phase on F6's secondary y-axis.
+ALONG_TRACK_REF_SPEED_KMPS = 7.59
+
 
 def _component_curve(
     df: pd.DataFrame,
@@ -109,6 +115,16 @@ def plot_error_decomposition(df: pd.DataFrame, out_path: Path) -> None:
         ax.set_xticklabels([BUCKET_LABELS[b] for b in BUCKET_SECONDS])
         ax.set_xlabel("Δt since epoch")
         ax.set_title(title)
+
+        if component == "along":
+            sec_ax = ax.secondary_yaxis(
+                "right",
+                functions=(
+                    lambda km: km / ALONG_TRACK_REF_SPEED_KMPS,
+                    lambda s: s * ALONG_TRACK_REF_SPEED_KMPS,
+                ),
+            )
+            sec_ax.set_ylabel(f"timing equivalent at {ALONG_TRACK_REF_SPEED_KMPS} km/s (s)")
 
     axes[0].set_ylabel("|component of Δr| (km)")
 

@@ -63,6 +63,12 @@ def plot_growth(
     bucket_hours = [b / 3600.0 for b in BUCKET_SECONDS]
 
     for ax, gen in zip(axes, pooled_gens, strict=True):
+        # Subtle background band over the consumer-relevant 6 h horizon
+        # (the ±2 h matching tolerance around Δt = 6 h, so 5–7 h on
+        # the log axis). Drawn first with zorder=0 so the data points,
+        # ribbons, and median lines render on top.
+        ax.axvspan(5.0, 7.0, color="0.85", alpha=0.4, linewidth=0, zorder=0)
+
         gen_df = df[df["gen_pooled"] == gen]
         for shell in ALT_SHELL_ORDER:
             sub = gen_df[gen_df["alt_shell"] == shell]
