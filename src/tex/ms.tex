@@ -1587,28 +1587,54 @@ Eq.~\eqref{eq:h3-slope-altitude-only}).
   \script{fig_solar_modulation.py}
 \end{figure}
 
-The headline daily-F10.7 fit returns
-$\hat\beta = +0.0173$~sfu$^{-1}$ with a $95\%$ percentile bootstrap CI
-of $[-0.0021,\,+0.0361]$ and $p = 0.07$ at $540$~km
-($n = 167$ sats, v1.x only at this shell, $R^{2} = 0.02$);
-$\hat\beta = -0.0095$~sfu$^{-1}$ with CI $[-0.0290,\,+0.0092]$ and
-$p = 0.31$ at $550$~km ($n = 165$ sats across both cohorts,
-$R^{2} = 0.45$, of which the bulk is the
-$\hat\alpha_{\mathrm{v2\text{-}mini}}
-- \hat\alpha_{\mathrm{v1.x}} = -0.54$ intercept gap absorbed by the
-ANCOVA covariate); and $\hat\beta = +0.0140$~sfu$^{-1}$ with CI
-$[+0.0009,\,+0.0310]$ and $p = 0.034$ at $560$~km ($n = 156$,
-$R^{2} = 0.24$). Only the $560$~km cell clears conventional
-significance on the daily-mean predictor; the $540$~km cell is
-positive and direction-consistent with the
-$\partial\,\log\rho / \partial\,\mathrm{F}10.7 > 0$ expectation at
-LEO but does not exclude zero at the corpus's narrow F10.7 lever
-of $\sim 17$~sfu across satellites. The $550$~km cell returns a slope
-indistinguishable from zero, and the partial-$F$ interaction test
-fails to reject the additive restriction ($p = 0.69$), so the
-across-cohort common-slope assumption of
-Eq.~\eqref{eq:h3-slope-altitude-only} is consistent with the data at
-that shell.
+The headline daily-F10.7 ANCOVA fit returns one slope per shell, summarised in
+Table~\ref{tab:h3-fits}: a positive slope at $540$~km that does not
+exclude zero at the corpus's narrow predictor span ($\sim 17$~sfu
+across satellites); a slope indistinguishable from zero at $550$~km;
+and a positive slope at $560$~km that clears conventional
+significance. The $560$~km cell is therefore the only one where H3
+modulation is statistically distinct from the null on the present
+30-day window. The $540$~km cell is direction-consistent with the
+textbook positive density gradient with F10.7 at LEO, but the
+intra-corpus F10.7 lever is too narrow to discriminate the
+predicted slope from zero on its own.
+
+\begin{table}[ht]
+  \centering
+  \caption{Per-shell ANCOVA fit of
+  Eq.~\eqref{eq:h3-model} with the daily-observed F10.7 as
+  predictor: slope estimate $\hat\beta$ in $\text{sfu}^{-1}$, $95\%$
+  satellite-level percentile bootstrap CI, two-sided $t$-stat
+  $p$-value for $H_{0}\!:\beta = 0$, and model $R^{2}$. The
+  partial-$F$ interaction test column reports the $p$-value of
+  the F10.7$\times$generation interaction against the additive
+  restriction (shells with a single cohort have no such test).
+  The intercept-offset column reports
+  $\hat\alpha_{\mathrm{v2\text{-}mini}} - \hat\alpha_{\mathrm{v1.x}}$
+  for shells where both cohorts are present.}
+  \label{tab:h3-fits}
+  \begin{tabular}{lrcrrrr}
+    \toprule
+    Shell & $n_{\mathrm{sats}}$ & cohorts & $\hat\beta$ & $95\%$ CI &
+    $p$ & $\Delta\hat\alpha$ \\
+    (km) & & & (sfu$^{-1}$) & (sfu$^{-1}$) & & ($\log_{10}$) \\
+    \midrule
+    540 & 167 & v1.x & $+0.017$ &
+      $[-0.002,\,+0.036]$ & $0.07$ & --- \\
+    550 & 165 & v1.x, v2-mini & $-0.010$ &
+      $[-0.029,\,+0.009]$ & $0.31$ & $-0.54$ \\
+    560 & 156 & v1.x, v2-mini & $+0.014$ &
+      $[+0.001,\,+0.031]$ & $0.034$ & $-0.38$ \\
+    \midrule
+    \multicolumn{3}{l}{Interaction-vs-additive partial-$F$}
+      & \multicolumn{2}{l}{F10.7$\times$gen} & $p$-value & \\
+    \midrule
+    540 & & & & & --- & \\
+    550 & & & \multicolumn{2}{l}{additive ok} & $0.69$ & \\
+    560 & & & \multicolumn{2}{l}{additive rejected} & $0.005$ & \\
+    \bottomrule
+  \end{tabular}
+\end{table}
 
 The $560$~km interaction test does reject the additive restriction
 ($p = 0.005$), indicating a cohort-specific F10.7 response at that
