@@ -32,12 +32,43 @@
 
 \begin{abstract}
 \noindent
-[Abstract placeholder. Will be written after Results are locked.
-Roughly 200 words covering: motivation (TLE ubiquity, megaconstellation scale),
-methodology (consecutive-TLE truth construction across $\sim$3000 Starlink
-satellite pairs), key findings (TBD --- H1 staleness curves, H2 SGP4 vs.
-high-fidelity comparison, H3 solar modulation), and practical implications
-for downstream TLE consumers.]
+We characterise the position-error behaviour of public Two-Line
+Element (TLE) propagation against operator-updated truth on the
+Starlink megaconstellation, sweeping $24{,}641$ next-TLE-truth
+pairs across $501$ satellites stratified by altitude shell
+($540$, $550$, $560$~km) and platform generation (v1.0, v1.5,
+v2-mini) over April $2026$. Each pair is propagated with both SGP4
+and NASA's General Mission Analysis Tool (GMAT) at high fidelity
+(EGM2008 $70\!\times\!70$, NRLMSISE-00 drag, Sun and Moon
+third-body gravity, conical-shadow SRP), and the two predictions
+are compared against the operator's subsequently released ephemeris
+evaluated as proxy truth. Three findings emerge. First, position
+error follows a per-cell power law
+$\lVert\Delta\mathbf{r}(\Delta t)\rVert \approx A\,\Delta t^{k}$
+whose fitted exponents lie in the open interval $(1,\,2)$ on every
+populated (shell~$\times$~generation) cell under both propagators,
+consistent with a mixture of mean-motion bias and constant unmodelled
+in-track acceleration; pooled L$_{2}$ medians grow from
+$\sim 1$~km at the $6$~h horizon (just beyond the operator's
+$\sim 4$-hour update interval) to $\sim 38$~km (SGP4) /
+$\sim 131$~km (high-fid) at $7$~d. Second, the high-fidelity
+propagator initialised from a public TLE does not improve over
+SGP4 at any of the four staleness horizons sampled; SGP4 wins on
+$\sim 65$--$80\%$ of pairs depending on horizon, a negative result
+that decomposes into three mechanisms --- at-epoch operator-OD
+residual dominance, SGP4-vs-SGP4 truth-construction kernel
+alignment, and preferential spacecraft-property bias amplification
+on the high-fidelity arm. Third, F10.7 modulation of the staleness
+coefficient is direction-consistent with the LEO density-gradient
+expectation but clears conventional significance only at
+$560$~km on the present moderate-activity corpus. Practitioners
+should regard public Starlink TLEs as adequate inside the operator's
+update cadence, treat the per-cell power-law fits as cohort-
+resolved staleness budgets, and avoid investing in
+high-fidelity propagation from public-TLE inputs unless improved
+initial states are also available. All code, the locked corpus,
+the resumable sweep manifest, and the rendered figures are
+released together under the MIT license.
 \end{abstract}
 
 \section{Introduction}
@@ -2056,7 +2087,63 @@ covariance-aware integrator and an unchanged corpus.
 \section{Conclusion}
 \label{sec:conclusion}
 
-[TODO.]
+We have characterised the position-error behaviour of SGP4 and a
+GMAT-class high-fidelity propagator against operator-updated truth on
+the Starlink megaconstellation, sweeping $24{,}641$ next-TLE-truth
+pairs across $501$ satellites stratified by altitude shell and platform
+generation. The three hypotheses introduced in
+Section~\ref{sec:introduction} resolve as follows:
+each populated (altitude shell $\times$ pooled generation) cell
+of the corpus carries a statistically distinguishable power-law
+staleness curve $\lVert\Delta\mathbf{r}(\Delta t)\rVert \approx
+A\,\Delta t^{k}$ with fitted exponents in $(1,\,2)$ on every cell
+under both propagators (H1, Table~\ref{tab:powerlaw}); the
+high-fidelity propagator initialised from a public TLE does
+\emph{not} improve median position error over SGP4 at any of the
+four staleness horizons sampled by this corpus, losing on
+$\sim 65$--$80\%$ of pairs depending on $\Delta t$ (H2,
+Table~\ref{tab:propagator-wins}); and solar-activity modulation of
+the per-satellite SGP4 staleness coefficient $A$ is direction-
+consistent with the
+$\partial\,\log\rho / \partial\,\mathrm{F}10.7 > 0$ expectation at LEO
+but clears conventional significance only at $560$~km on this
+30-day, moderate-activity corpus (H3, Figure~\ref{fig:solar-modulation}).
+
+Three practitioner-facing summaries condense the operational reading
+of these results. First, Starlink TLEs may be used unmodified up to
+the operator's $\sim 4$-hour refresh interval; consumers should
+expect a $\sim 1$~km median 3D position error at the $6$~h boundary
+across all shells and generations, with the bulk of that error
+attributable to the operator's at-epoch OD residual rather than to
+propagator quality
+(Section~\ref{sec:discussion-h2-mechanisms}, mechanism 1). Second,
+high-fidelity propagation should not be invested in for public-TLE
+workflows unless the consumer also brings better-than-operator-OD
+initial states; the gain over SGP4 from a force-model upgrade alone
+is negative or marginal in every cell of the corpus, and the
+asymmetric mechanism-3 amplification of spacecraft-property
+uncertainty on the high-fidelity arm sets an upper bound on what a
+$\pm 20\%$ improvement in $C_{D} \cdot A$ knowledge can recover
+(Appendix~\ref{app:cda-sensitivity}). Third, the v2-mini cohort is
+the high-uncertainty cohort: SGP4 $7$~d medians are $2$--$4\times$
+higher than v1.x at the same altitude
+(Section~\ref{sec:results-h1}), and operational staleness budgets
+on that cohort should be sized $\sim 2\times$ looser than v1.x
+correspondingly.
+
+Beyond these three takeaways, the per-cell power-law atlas of
+Table~\ref{tab:powerlaw} is intended to be \emph{reusable} as a
+benchmark target for the enhanced-propagator line of work surveyed
+in Section~\ref{sec:background}: the same locked corpus, the same
+$\Delta t$ buckets, and the same $(A,\,k)$ estimator are available
+for any future propagator to refit against, and the cohort-resolved
+table is the natural form for a downstream error-budget input. The
+deterministic baseline reported here provides the curve a Monte
+Carlo or sigma-point uncertainty study would integrate against
+(Section~\ref{sec:discussion-covariance}). All code, the locked
+corpus, the resumable sweep manifest, and the rendered figures are
+released together under the MIT license at the URL listed in
+Section~\ref{sec:availability}.
 
 \appendix
 
