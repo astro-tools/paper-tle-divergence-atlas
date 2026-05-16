@@ -977,8 +977,10 @@ Captions below are placeholders pending final Results lock.]
   $(\Delta t, |\Delta\mathbf{r}|)$ pairs; bold markers connected by lines
   give the per-bucket median and the shaded band gives the 25th--75th
   percentile range. Log-log axes; identical $y$-limits to
-  Figure~\ref{fig:hifi-growth}. The 6~h bucket is floor-limited
-  per Section~\ref{sec:background-truth-floor}.}
+  Figure~\ref{fig:hifi-growth}. The light grey vertical band marks
+  the consumer-relevant 6~h horizon (the $\pm 2$~h pair-matching
+  tolerance, Section~\ref{sec:methods-pairs}); this bucket is
+  floor-limited per Section~\ref{sec:background-truth-floor}.}
   \label{fig:sgp4-growth}
   \script{fig_sgp4_growth.py}
 \end{figure}
@@ -988,7 +990,8 @@ Captions below are placeholders pending final Results lock.]
   \includegraphics[width=\linewidth]{figures/fig_hifi_growth.pdf}
   \caption{High-fidelity propagation error vs. $\Delta t$ since epoch,
   rendered with identical layout and axes to Figure~\ref{fig:sgp4-growth}
-  for direct visual comparison.}
+  for direct visual comparison. The 6~h consumer-horizon band is
+  shaded as in Figure~\ref{fig:sgp4-growth}.}
   \label{fig:hifi-growth}
   \script{fig_hifi_growth.py}
 \end{figure}
