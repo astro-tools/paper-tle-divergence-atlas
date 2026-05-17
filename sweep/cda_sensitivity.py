@@ -52,11 +52,13 @@ from gmat_sweep import LocalJoblibPool, Manifest, RunSpec, Sweep
 
 from sweep.run_sweep import (
     _OVERRIDE_COLUMNS,
+    _RESOLVED_SCRIPT_NAME,
     _build_run_spec,
     _decompose_rsw,
     _final_gmat_state,
     _preprocess_all,
     _Preprocessed,
+    _resolve_mission_script,
 )
 from sweep.space_weather import load_sw_cache
 
@@ -198,7 +200,6 @@ def run_one_factor(
     factor: float,
     output_root: Path,
     workers: int,
-    gmat_sw_file: Path,
 ) -> pd.DataFrame:
     """Run the GMAT sweep at a single CdA factor; return the aggregated frame.
 
@@ -227,9 +228,7 @@ def run_one_factor(
     if not preprocessed:
         raise RuntimeError(f"no pairs survived preprocessing at CdA factor {factor:g}")
 
-    base_specs = [
-        _build_run_spec(p, mission, factor_dir, gmat_sw_file=gmat_sw_file) for p in preprocessed
-    ]
+    base_specs = [_build_run_spec(p, mission, factor_dir) for p in preprocessed]
     scaled_specs = [_scale_drag_area(s, factor) for s in base_specs]
 
     parameter_spec = {
@@ -354,17 +353,26 @@ def main() -> int:
     output_root = args.output_root.resolve()
     output_root.mkdir(parents=True, exist_ok=True)
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    gmat_sw_file = args.gmat_sw_file.resolve()
+
+    # Same script-templating step as the main sweep — see
+    # sweep.run_sweep._resolve_mission_script for the rationale.
+    args.mission = args.mission.resolve()
+    resolved_mission = args.mission.parent / _RESOLVED_SCRIPT_NAME
+    _resolve_mission_script(args.mission, args.gmat_sw_file.resolve(), resolved_mission)
+    print(
+        f"resolved mission script -> {resolved_mission} "
+        f"(SW file baked: {args.gmat_sw_file.resolve()})",
+        file=sys.stderr,
+    )
 
     for factor in args.factor:
         df = run_one_factor(
             pairs,
-            args.mission,
+            resolved_mission,
             sw_lookup,
             factor,
             output_root,
             args.workers,
-            gmat_sw_file,
         )
         label = _FACTOR_LABELS.get(float(factor))
         if label is None:

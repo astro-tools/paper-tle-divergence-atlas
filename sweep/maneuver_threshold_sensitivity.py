@@ -51,11 +51,13 @@ from gmat_sweep import LocalJoblibPool, Manifest, Sweep
 
 from sweep.run_sweep import (
     _OVERRIDE_COLUMNS,
+    _RESOLVED_SCRIPT_NAME,
     _build_run_spec,
     _decompose_rsw,
     _final_gmat_state,
     _preprocess_all,
     _Preprocessed,
+    _resolve_mission_script,
 )
 from sweep.space_weather import load_sw_cache
 
@@ -212,7 +214,6 @@ def run_augment_sweep(
     sw_lookup: dict,
     output_root: Path,
     workers: int,
-    gmat_sw_file: Path,
 ) -> pd.DataFrame:
     """Preprocess, dispatch GMAT, postprocess, and aggregate the augment set.
 
@@ -241,9 +242,7 @@ def run_augment_sweep(
     if not preprocessed:
         raise RuntimeError("no pairs survived preprocessing")
 
-    specs = [
-        _build_run_spec(p, mission, output_root, gmat_sw_file=gmat_sw_file) for p in preprocessed
-    ]
+    specs = [_build_run_spec(p, mission, output_root) for p in preprocessed]
 
     parameter_spec = {
         "_kind": "explicit",
@@ -367,13 +366,24 @@ def main() -> int:
     sw_lookup = load_sw_cache(args.sw_cache)
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
+
+    # Same script-templating step as the main sweep — see
+    # sweep.run_sweep._resolve_mission_script for the rationale.
+    args.mission = args.mission.resolve()
+    resolved_mission = args.mission.parent / _RESOLVED_SCRIPT_NAME
+    _resolve_mission_script(args.mission, args.gmat_sw_file.resolve(), resolved_mission)
+    print(
+        f"resolved mission script -> {resolved_mission} "
+        f"(SW file baked: {args.gmat_sw_file.resolve()})",
+        file=sys.stderr,
+    )
+
     df = run_augment_sweep(
         augment_pairs,
-        args.mission,
+        resolved_mission,
         sw_lookup,
         args.output_root,
         args.workers,
-        args.gmat_sw_file.resolve(),
     )
     df.to_parquet(args.out, index=False)
     print(

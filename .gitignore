@@ -48,6 +48,11 @@ outputs/
 # Day-3/4 acceptance contract.
 sweep/manifest.jsonl
 
+# Resolved mission script: sweep/mission.script with the absolute
+# FM.Drag.CSSISpaceWeatherFile path baked in. Regenerated on every sweep
+# invocation; never committed.
+sweep/.mission.resolved.script
+
 # Raw Space-Track TLE dump (~100 MB; one-time fetch, not for commit).
 # The post-sample corpus (src/static/tles_cache.parquet) IS committed.
 src/data/tles_raw.parquet
