@@ -13,7 +13,14 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from sweep.space_weather import SwRow, load_sw_cache, lookup_for_epoch, parse_sw_text
+from sweep.space_weather import (
+    SwRow,
+    load_sw_cache,
+    lookup_for_epoch,
+    parse_observed_end_date,
+    parse_sw_text,
+    verify_gmat_sw_coverage,
+)
 
 # Minimal fixture mirroring CelesTrak's `sw19571001.txt` v1.2 layout: a
 # couple of OBSERVED rows, then a couple of DAILY_PREDICTED rows. Values
@@ -116,6 +123,51 @@ class TestLoadSwCache:
         assert row.f107_avg81 == pytest.approx(125.8)
         assert row.ap_daily == pytest.approx(8.0)
         assert row.is_observed is True
+
+
+class TestParseObservedEndDate:
+    def test_picks_last_observed_row(self) -> None:
+        # Fixture's last OBSERVED date is 2026-04-15; the DAILY_PREDICTED
+        # row on 2026-05-12 must be ignored.
+        assert parse_observed_end_date(_FIXTURE) == dt.date(2026, 4, 15)
+
+    def test_raises_when_no_observed_section(self) -> None:
+        text = "DATATYPE CssiSpaceWeather\nVERSION 1.2\n"
+        with pytest.raises(ValueError, match="no OBSERVED rows"):
+            parse_observed_end_date(text)
+
+
+class TestVerifyGmatSwCoverage:
+    def test_accepts_horizon_at_window_end(self, tmp_path: Path) -> None:
+        path = tmp_path / "SpaceWeather-All-v1.2.txt"
+        path.write_text(_FIXTURE, encoding="utf-8")
+        # Fixture observed horizon is 2026-04-15; a corpus window ending
+        # 2026-04-15 (inclusive) is covered.
+        end = verify_gmat_sw_coverage(path, dt.date(2026, 4, 15))
+        assert end == dt.date(2026, 4, 15)
+
+    def test_rejects_horizon_before_window_end(self, tmp_path: Path) -> None:
+        path = tmp_path / "SpaceWeather-All-v1.2.txt"
+        path.write_text(_FIXTURE, encoding="utf-8")
+        # The whole point of the override: a stale SW file whose observed
+        # horizon falls before the corpus window must fail loudly so the
+        # sweep doesn't silently consume Schatten predictions.
+        with pytest.raises(ValueError, match="observed-data horizon is 2026-04-15"):
+            verify_gmat_sw_coverage(path, dt.date(2026, 5, 1))
+
+
+class TestStaticSpaceWeatherFile:
+    """The committed src/static/SpaceWeather-All-v1.2.txt covers the corpus."""
+
+    PATH = Path(__file__).resolve().parents[1] / "src" / "static" / "SpaceWeather-All-v1.2.txt"
+    WINDOW_END = dt.date(2026, 5, 1)
+
+    def test_file_exists(self) -> None:
+        assert self.PATH.exists(), f"{self.PATH} missing — run `make fetch-gmat-sw`"
+
+    def test_covers_corpus_window(self) -> None:
+        end = verify_gmat_sw_coverage(self.PATH, self.WINDOW_END)
+        assert end >= self.WINDOW_END
 
 
 if __name__ == "__main__":  # pragma: no cover

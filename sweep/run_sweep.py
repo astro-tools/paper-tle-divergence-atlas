@@ -40,6 +40,8 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import json
+import re
 import sys
 import time
 from dataclasses import dataclass
@@ -61,12 +63,28 @@ from gmat_sweep import (
 from sgp4.api import Satrec, jday
 from tqdm import tqdm
 
-from sweep.space_weather import SwRow, load_sw_cache, lookup_for_epoch
+from sweep.space_weather import (
+    SwRow,
+    load_sw_cache,
+    lookup_for_epoch,
+    verify_gmat_sw_coverage,
+)
 from sweep.spacecraft_props import CD, CR
 
 DEFAULT_SMOKE_N: Final = 8  # split evenly across the Δt buckets
 DEFAULT_SMOKE_SEED: Final = 42
 DEFAULT_WORKERS: Final = 8
+
+# Pattern that matches the placeholder `FM.Drag.CSSISpaceWeatherFile` line in
+# `sweep/mission.script`. Substituted with the absolute SW-file path at sweep
+# startup — see `_resolve_mission_script` below for the rationale (gmat-run's
+# field-override API only accepts single-dot `Resource.Field` paths, so this
+# multi-dot sub-resource field can't be set per-run from `RunSpec.overrides`).
+_GMAT_SW_FILE_LINE = re.compile(
+    r"^(\s*GMAT\s+FM\.Drag\.CSSISpaceWeatherFile\s*=\s*)'[^']*'(\s*;)",
+    re.MULTILINE,
+)
+_RESOLVED_SCRIPT_NAME: Final = ".mission.resolved.script"
 
 # --- TEME → MJ2000Eq rotation (Vallado IAU 1976/1980, via erfa) -----------
 
@@ -220,7 +238,42 @@ def _gmat_epoch_string(epoch: pd.Timestamp) -> str:
     return f"{e.strftime('%d %b %Y %H:%M:%S')}.{e.microsecond // 1000:03d}"
 
 
-def _build_run_spec(pre: _Preprocessed, mission_path: Path, output_root: Path) -> RunSpec:
+def _resolve_mission_script(
+    template_path: Path,
+    gmat_sw_file: Path,
+    out_path: Path,
+) -> Path:
+    """Bake the absolute SW-file path into a sweep-local copy of the script.
+
+    ``FM.Drag.CSSISpaceWeatherFile`` is a sub-resource field (two dots),
+    which gmat-run's ``Mission.__setitem__`` rejects — it only accepts
+    single-dot ``Resource.Field`` paths. The SW file is per-sweep, not
+    per-pair, so we substitute the absolute path into the script once
+    at sweep startup and dispatch GMAT against the resolved copy.
+
+    The resolved script's SHA-256 is what gmat-sweep records in the
+    manifest, so resume across sweep invocations is keyed on the
+    (template-bytes, sw-file-path) pair: a different SW path produces
+    a different script hash and correctly refuses to mix manifests.
+    """
+    text = template_path.read_text(encoding="utf-8")
+    replacement = rf"\g<1>'{gmat_sw_file}'\2"
+    new_text, n_subs = _GMAT_SW_FILE_LINE.subn(replacement, text)
+    if n_subs != 1:
+        raise ValueError(
+            f"expected exactly one `FM.Drag.CSSISpaceWeatherFile = '...';` "
+            f"line in {template_path}, found {n_subs}. Cannot resolve the "
+            f"GMAT space-weather override."
+        )
+    out_path.write_text(new_text, encoding="utf-8")
+    return out_path
+
+
+def _build_run_spec(
+    pre: _Preprocessed,
+    mission_path: Path,
+    output_root: Path,
+) -> RunSpec:
     return RunSpec(
         script_path=mission_path,
         overrides={
@@ -356,6 +409,21 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         required=True,
         help="Path to space-weather cache parquet (built by `make fetch-sw`)",
+    )
+    parser.add_argument(
+        "--gmat-sw-file",
+        type=Path,
+        required=True,
+        help="Path to the CssiSpaceWeather text file passed to GMAT via "
+        "FM.Drag.CSSISpaceWeatherFile (committed at "
+        "src/static/SpaceWeather-All-v1.2.txt; refresh with `make fetch-gmat-sw`)",
+    )
+    parser.add_argument(
+        "--window",
+        type=Path,
+        default=Path("src/static/window.json"),
+        help="Path to the corpus window JSON used to verify the GMAT SW file's "
+        "observed-data horizon covers the analysis epochs.",
     )
     return parser.parse_args()
 
@@ -611,8 +679,29 @@ def main() -> int:
     args.manifest = args.manifest.resolve()
     args.mission = args.mission.resolve()
     args.tles = args.tles.resolve()
+    args.gmat_sw_file = args.gmat_sw_file.resolve()
     args.output_dir.mkdir(parents=True, exist_ok=True)
     args.manifest.parent.mkdir(parents=True, exist_ok=True)
+
+    window_end = dt.datetime.fromisoformat(json.loads(args.window.read_text())["end"]).date()
+    end = verify_gmat_sw_coverage(args.gmat_sw_file, window_end)
+    print(
+        f"GMAT space-weather file {args.gmat_sw_file} covers observed through "
+        f"{end.isoformat()} (corpus window ends {window_end.isoformat()})",
+        file=sys.stderr,
+    )
+
+    # Bake the SW file path into a sweep-local copy of the script.
+    # gmat-run's override API can't address `FM.Drag.CSSISpaceWeatherFile`
+    # (sub-resource field), so templating is the only way to point GMAT
+    # at a project-local SW file without mutating the install.
+    resolved_mission = args.mission.parent / _RESOLVED_SCRIPT_NAME
+    _resolve_mission_script(args.mission, args.gmat_sw_file, resolved_mission)
+    print(
+        f"resolved mission script -> {resolved_mission} (SW file baked: {args.gmat_sw_file})",
+        file=sys.stderr,
+    )
+    args.mission = resolved_mission
 
     # Resume if an existing manifest matches the current corpus; otherwise
     # fresh dispatch. The fresh path always re-runs from scratch; resume

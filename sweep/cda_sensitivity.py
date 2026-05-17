@@ -52,11 +52,13 @@ from gmat_sweep import LocalJoblibPool, Manifest, RunSpec, Sweep
 
 from sweep.run_sweep import (
     _OVERRIDE_COLUMNS,
+    _RESOLVED_SCRIPT_NAME,
     _build_run_spec,
     _decompose_rsw,
     _final_gmat_state,
     _preprocess_all,
     _Preprocessed,
+    _resolve_mission_script,
 )
 from sweep.space_weather import load_sw_cache
 
@@ -289,6 +291,13 @@ def parse_args() -> argparse.Namespace:
         help="Path to space-weather cache parquet (built by `make fetch-sw`)",
     )
     parser.add_argument(
+        "--gmat-sw-file",
+        type=Path,
+        default=Path("src/static/SpaceWeather-All-v1.2.txt"),
+        help="Path to the CssiSpaceWeather text file passed to GMAT via "
+        "FM.Drag.CSSISpaceWeatherFile.",
+    )
+    parser.add_argument(
         "--output-root",
         type=Path,
         default=Path("outputs/_cda_sensitivity"),
@@ -345,10 +354,21 @@ def main() -> int:
     output_root.mkdir(parents=True, exist_ok=True)
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
+    # Same script-templating step as the main sweep — see
+    # sweep.run_sweep._resolve_mission_script for the rationale.
+    args.mission = args.mission.resolve()
+    resolved_mission = args.mission.parent / _RESOLVED_SCRIPT_NAME
+    _resolve_mission_script(args.mission, args.gmat_sw_file.resolve(), resolved_mission)
+    print(
+        f"resolved mission script -> {resolved_mission} "
+        f"(SW file baked: {args.gmat_sw_file.resolve()})",
+        file=sys.stderr,
+    )
+
     for factor in args.factor:
         df = run_one_factor(
             pairs,
-            args.mission,
+            resolved_mission,
             sw_lookup,
             factor,
             output_root,

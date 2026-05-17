@@ -36,6 +36,7 @@ from sweep.run_sweep import (
     _postprocess_run,
     _preprocess_pair,
     _Preprocessed,
+    _resolve_mission_script,
     _resume_compatible,
     _resume_dispatch,
     _teme_to_mj2000,
@@ -237,10 +238,20 @@ class TestBuildRunSpec:
             ap_daily=8.0,
         )
 
-    def test_overrides_complete(self) -> None:
-        from pathlib import Path
+    def _spec(self, run_id: int = 3) -> object:
+        return _build_run_spec(
+            self._pre(run_id),
+            Path("mission.script"),
+            Path("outputs"),
+        )
 
-        spec = _build_run_spec(self._pre(), Path("mission.script"), Path("outputs"))
+    def test_overrides_complete(self) -> None:
+        # FM.Drag.CSSISpaceWeatherFile is *not* in this set: gmat-run's
+        # Mission.__setitem__ only accepts single-dot Resource.Field paths,
+        # so the SW-file value is baked into the script via
+        # `_resolve_mission_script` at sweep startup rather than overridden
+        # per run. See TestResolveMissionScript.
+        spec = self._spec()
         assert set(spec.overrides) == {
             "Sat.Epoch",
             "Sat.X",
@@ -258,11 +269,9 @@ class TestBuildRunSpec:
         }
 
     def test_per_sat_props_propagate_into_overrides(self) -> None:
-        from pathlib import Path
-
         from sweep.spacecraft_props import CD, CR
 
-        spec = _build_run_spec(self._pre(), Path("m.script"), Path("outputs"))
+        spec = self._spec()
         assert spec.overrides["Sat.DryMass"] == 305.0
         assert spec.overrides["Sat.DragArea"] == 5.0
         assert spec.overrides["Sat.SRPArea"] == 5.0
@@ -270,9 +279,7 @@ class TestBuildRunSpec:
         assert spec.overrides["Sat.Cr"] == CR
 
     def test_output_dir_nests_run_id(self) -> None:
-        from pathlib import Path
-
-        spec = _build_run_spec(self._pre(run_id=7), Path("m.script"), Path("outputs"))
+        spec = self._spec(run_id=7)
         assert spec.output_dir == Path("outputs/run_7")
         assert spec.run_id == 7
 
@@ -281,21 +288,84 @@ class TestBuildRunSpec:
         # stale partial outputs left by a Ctrl-C'd worker. Without it,
         # every retry of an interrupted run_id fails with "working_dir
         # already contains output files".
-        from pathlib import Path
-
-        spec = _build_run_spec(self._pre(), Path("m.script"), Path("outputs"))
+        spec = self._spec()
         assert spec.run_options == {"overwrite": True}
 
     def test_override_values_are_json_safe(self) -> None:
-        from pathlib import Path
-
-        spec = _build_run_spec(self._pre(), Path("m.script"), Path("outputs"))
+        spec = self._spec()
         # RunSpec.overrides values must be JSON-encodable for the manifest.
         # Floats and strings; no numpy scalars.
         for value in spec.overrides.values():
             assert isinstance(value, (str, float)), (
                 f"{type(value).__name__} is not JSON-safe in RunSpec.overrides"
             )
+
+
+class TestResolveMissionScript:
+    """Sweep-startup helper: bake the SW-file absolute path into the script."""
+
+    def _template(self, sw_path_literal: str = "src/static/SpaceWeather-All-v1.2.txt") -> str:
+        return (
+            "Create Spacecraft Sat;\n"
+            "GMAT FM.Drag.AtmosphereModel = NRLMSISE00;\n"
+            f"GMAT FM.Drag.CSSISpaceWeatherFile = '{sw_path_literal}';\n"
+            "GMAT FM.ErrorControl = RSSStep;\n"
+        )
+
+    def test_substitutes_absolute_path(self, tmp_path: Path) -> None:
+        template = tmp_path / "mission.script"
+        template.write_text(self._template(), encoding="utf-8")
+        out = tmp_path / ".mission.resolved.script"
+        sw = Path("/abs/path/to/SpaceWeather-All-v1.2.txt")
+
+        _resolve_mission_script(template, sw, out)
+
+        text = out.read_text(encoding="utf-8")
+        assert f"GMAT FM.Drag.CSSISpaceWeatherFile = '{sw}';" in text
+        # Other lines preserved verbatim.
+        assert "GMAT FM.Drag.AtmosphereModel = NRLMSISE00;" in text
+        assert "GMAT FM.ErrorControl = RSSStep;" in text
+
+    def test_replaces_existing_value_idempotently(self, tmp_path: Path) -> None:
+        # Re-running with a different SW path must clobber the previous
+        # value, not stack a second assignment.
+        template = tmp_path / "mission.script"
+        template.write_text(self._template("/old/path.txt"), encoding="utf-8")
+        out = tmp_path / ".mission.resolved.script"
+        sw = Path("/new/path.txt")
+
+        _resolve_mission_script(template, sw, out)
+
+        text = out.read_text(encoding="utf-8")
+        assert "/old/path.txt" not in text
+        assert "/new/path.txt" in text
+        # Exactly one CSSISpaceWeatherFile line in the output.
+        assert text.count("FM.Drag.CSSISpaceWeatherFile") == 1
+
+    def test_raises_when_placeholder_missing(self, tmp_path: Path) -> None:
+        # If the template loses the SW-file line, dispatching against it
+        # would silently fall back to the bundled file (the bug this
+        # whole PR fixes) — fail loudly instead.
+        template = tmp_path / "mission.script"
+        template.write_text("GMAT FM.Drag.AtmosphereModel = NRLMSISE00;\n", encoding="utf-8")
+        out = tmp_path / ".mission.resolved.script"
+
+        with pytest.raises(ValueError, match="expected exactly one"):
+            _resolve_mission_script(template, Path("/x.txt"), out)
+
+    def test_template_in_repo_substitutes_cleanly(self) -> None:
+        # End-to-end against the real sweep/mission.script template:
+        # confirms the regex matches the actual line shape on disk.
+        repo_root = Path(__file__).resolve().parents[1]
+        template = repo_root / "sweep" / "mission.script"
+        out = template.parent / ".mission.resolved.script"
+        sw = Path("/tmp/sw.txt")
+        try:
+            _resolve_mission_script(template, sw, out)
+            text = out.read_text(encoding="utf-8")
+            assert f"GMAT FM.Drag.CSSISpaceWeatherFile = '{sw}';" in text
+        finally:
+            out.unlink(missing_ok=True)
 
 
 class TestPostprocessRunSchema:

@@ -56,6 +56,17 @@ GMAT FM.GravityField.Earth.Degree = 70;
 GMAT FM.GravityField.Earth.Order = 70;
 GMAT FM.GravityField.Earth.PotentialFile = 'EGM2008.cof';
 GMAT FM.Drag.AtmosphereModel = NRLMSISE00;
+% Read solar flux and geomagnetic activity from a project-local CSSI
+% space-weather file rather than GMAT's bundled SpaceWeather-All-v1.2.txt.
+% The bundled file's observed-data horizon (2025-03-20) falls before the
+% April 2026 corpus window, so the bundled file would otherwise feed
+% NRLMSISE-00 a Schatten *prediction* (~152 sfu) for every corpus epoch
+% instead of CelesTrak's observed values (~120 sfu). The default path
+% below makes the script standalone-runnable from the repo root; the
+% sweep driver overrides it with an absolute path per invocation.
+GMAT FM.Drag.HistoricWeatherSource = 'CSSISpaceWeatherFile';
+GMAT FM.Drag.PredictedWeatherSource = 'CSSISpaceWeatherFile';
+GMAT FM.Drag.CSSISpaceWeatherFile = 'src/static/SpaceWeather-All-v1.2.txt';
 GMAT FM.ErrorControl = RSSStep;
 
 %----------------------------------------
