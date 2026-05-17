@@ -1,10 +1,22 @@
-"""Space-weather cache for the sweep.
+"""Space-weather artifacts for the sweep.
 
-Fetches and parses CelesTrak's `sw19571001.txt` (CssiSpaceWeather v1.2)
-into a small, committed Parquet keyed by UTC date, so per-run sweep
-parquets can carry real `f107` / `ap` values instead of NaNs.
+CelesTrak's ``sw19571001.txt`` (CssiSpaceWeather v1.2) feeds two
+independent consumers in this repository:
 
-Pipeline:
+1. An analysis-annotation parquet (``src/static/sw_cache.parquet``) keyed
+   by UTC date, so per-run sweep parquets can carry real ``f107`` /
+   ``ap`` values for the H3 regression instead of NaNs. Built by the
+   ``fetch`` subcommand below.
+
+2. The CSSI-format text file itself (``src/static/SpaceWeather-All-v1.2.txt``),
+   read by GMAT's NRLMSISE-00 drag model via the ``FM.Drag.CSSISpaceWeatherFile``
+   script-level override (see ``sweep/mission.script``). GMAT's bundled
+   ``SpaceWeather-All-v1.2.txt`` is stamped 2025-03-21 — its observed-data
+   horizon falls 13 months before the corpus window, so without this
+   override the hi-fid arm would consume Schatten predictions for the
+   entire April 2026 sweep. Built by the ``fetch-raw`` subcommand.
+
+Pipeline (annotation parquet)::
 
     fetch_sw_file(out_text)                    # one-time HTTP, ~7 MB plain text
     df = parse_sw_text(text)                   # OBSERVED + DAILY_PREDICTED sections
@@ -15,7 +27,13 @@ Pipeline:
     lookup = load_sw_cache(out_parquet)
     row = lookup[epoch_i_utc.date()]           # KeyError on miss (not silent NaN)
 
-Column mapping (CelesTrak FORMAT(I4,I3,I3,I5,I3,8I3,I4,8I4,I4,F4.1,I2,I4,F6.1,I2,5F6.1)):
+Pipeline (GMAT-facing CSSI file)::
+
+    fetch_sw_file(out_path)                    # write the raw CelesTrak text verbatim
+    verify_gmat_sw_coverage(out_path, window)  # observed horizon must reach window end
+
+Column mapping for the parquet builder
+(CelesTrak FORMAT(I4,I3,I3,I5,I3,8I3,I4,8I4,I4,F4.1,I2,I4,F6.1,I2,5F6.1)):
 
     field 0  = year
     field 1  = month
@@ -23,11 +41,6 @@ Column mapping (CelesTrak FORMAT(I4,I3,I3,I5,I3,8I3,I4,8I4,I4,F4.1,I2,I4,F6.1,I2
     field 22 = Ap Avg            -> ap_daily       (planetary daily Ap, dimensionless)
     field 30 = Obs F10.7         -> f107_obs       (daily observed 10.7 cm flux, sfu)
     field 31 = Obs Ctr81         -> f107_avg81     (81-day centered avg of obs F10.7, sfu)
-
-The 81-day centered avg is the variable MSIS-class atmospheres consume
-internally; GMAT's MSISE-90 reads its own SW file independently of this
-cache. The columns here are *analysis annotations* (for the paper's H3
-regression of error coefficients vs. F10.7 and Ap), not GMAT inputs.
 """
 
 from __future__ import annotations
@@ -145,6 +158,59 @@ def load_sw_cache(path: Path) -> dict[dt.date, SwRow]:
     return lookup
 
 
+def parse_observed_end_date(text: str) -> dt.date:
+    """Return the UTC date of the last row inside the OBSERVED section.
+
+    Parses the same CssiSpaceWeather v1.2 layout as :func:`parse_sw_text`
+    but only scans the OBSERVED block — the GMAT-facing consumer cares
+    about the observed horizon, not the daily/monthly predicted rows
+    that follow.
+
+    Raises ``ValueError`` if the file has no OBSERVED block or the block
+    is empty.
+    """
+    section: str | None = None
+    last_date: dt.date | None = None
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("BEGIN OBSERVED"):
+            section = "observed"
+            continue
+        if stripped.startswith("END OBSERVED"):
+            break
+        if section != "observed" or not stripped or stripped.startswith("#"):
+            continue
+        tokens = stripped.split()
+        if len(tokens) < 3:
+            continue
+        last_date = dt.date(int(tokens[0]), int(tokens[1]), int(tokens[2]))
+
+    if last_date is None:
+        raise ValueError("space-weather text has no OBSERVED rows")
+    return last_date
+
+
+def verify_gmat_sw_coverage(path: Path, window_end: dt.date) -> dt.date:
+    """Confirm the GMAT-facing CSSI file's OBSERVED block covers `window_end`.
+
+    Returns the file's last observed date. Raises ``ValueError`` if the
+    observed horizon falls strictly before ``window_end`` — without this
+    check, GMAT would silently fall back to the DAILY_PREDICTED or
+    MONTHLY_PREDICTED sections for epochs past the horizon, which is the
+    exact failure mode this whole override exists to prevent.
+    """
+    text = path.read_text(encoding="utf-8")
+    end = parse_observed_end_date(text)
+    if end < window_end:
+        raise ValueError(
+            f"{path}: observed-data horizon is {end.isoformat()} but the "
+            f"corpus window ends {window_end.isoformat()}. Refresh the "
+            f"snapshot with `make fetch-gmat-sw` (the CelesTrak source file "
+            f"updates daily with new observations)."
+        )
+    return end
+
+
 def lookup_for_epoch(lookup: dict[dt.date, SwRow], epoch_utc: pd.Timestamp) -> SwRow:
     """Look up SW values for the UTC date of `epoch_utc`.
 
@@ -163,6 +229,15 @@ def lookup_for_epoch(lookup: dict[dt.date, SwRow], epoch_utc: pd.Timestamp) -> S
 
 
 # --- CLI -------------------------------------------------------------------
+
+
+def _cli_fetch_raw(args: argparse.Namespace) -> int:
+    print(f"fetching {SW_URL} -> {args.out}", file=sys.stderr)
+    n_bytes = fetch_sw_file(args.out)
+    print(f"  {n_bytes:,} bytes", file=sys.stderr)
+    end = parse_observed_end_date(args.out.read_text(encoding="utf-8"))
+    print(f"  last observed date: {end.isoformat()}", file=sys.stderr)
+    return 0
 
 
 def _cli_fetch(args: argparse.Namespace) -> int:
@@ -223,6 +298,14 @@ def parse_args() -> argparse.Namespace:
         help="Keep the downloaded raw text file (useful for debugging the parser)",
     )
     fetch.set_defaults(func=_cli_fetch)
+
+    fetch_raw = sub.add_parser(
+        "fetch-raw",
+        help="Fetch the CelesTrak CssiSpaceWeather v1.2 text verbatim "
+        "(for GMAT's FM.Drag.CSSISpaceWeatherFile override)",
+    )
+    fetch_raw.add_argument("--out", type=Path, required=True, help="Output text-file path")
+    fetch_raw.set_defaults(func=_cli_fetch_raw)
 
     return parser.parse_args()
 

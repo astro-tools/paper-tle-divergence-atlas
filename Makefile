@@ -1,4 +1,4 @@
-.PHONY: help env fetch-tles fetch-satcat fetch-sw install-egm2008 build-corpus build-maneuver-jumps build-rejection-counts build-sensitivity-subset build smoke sweep aggregate sweep-stats diagnostics cda-sensitivity cda-sensitivity-table maneuver-threshold-sensitivity maneuver-threshold-table h3-regression propagator-wins figures clean
+.PHONY: help env fetch-tles fetch-satcat fetch-sw fetch-gmat-sw install-egm2008 build-corpus build-maneuver-jumps build-rejection-counts build-sensitivity-subset build smoke sweep aggregate sweep-stats diagnostics cda-sensitivity cda-sensitivity-table maneuver-threshold-sensitivity maneuver-threshold-table h3-regression propagator-wins figures clean
 
 help:
 	@echo "Targets:"
@@ -9,6 +9,10 @@ help:
 	@echo "                  per-NORAD-ID dry mass and span."
 	@echo "  fetch-sw     -- one-time fetch of CelesTrak's space-weather file used for"
 	@echo "                  per-run F10.7 / Ap annotations."
+	@echo "  fetch-gmat-sw -- one-time fetch of CelesTrak's CssiSpaceWeather file used"
+	@echo "                   by GMAT's NRLMSISE-00 drag model (committed at"
+	@echo "                   src/static/SpaceWeather-All-v1.2.txt; refresh before"
+	@echo "                   re-running the sweep against newer observations)."
 	@echo "  install-egm2008 -- one-time download + convert of NGA's EGM2008 coefficient"
 	@echo "                     file into \$$GMAT_ROOT/data/gravity/earth/EGM2008.cof"
 	@echo "                     (idempotent; safe to re-run)."
@@ -80,6 +84,12 @@ src/static/sw_cache.parquet:
 	python -m sweep.space_weather fetch \
 	    --out $@
 
+fetch-gmat-sw: src/static/SpaceWeather-All-v1.2.txt
+
+src/static/SpaceWeather-All-v1.2.txt:
+	python -m sweep.space_weather fetch-raw \
+	    --out $@
+
 install-egm2008:
 	python -m sweep.install_egm2008
 
@@ -120,6 +130,7 @@ smoke:
 	    --mission sweep/mission.script \
 	    --tles src/static/tles_cache.parquet \
 	    --sw-cache src/static/sw_cache.parquet \
+	    --gmat-sw-file src/static/SpaceWeather-All-v1.2.txt \
 	    --output-dir outputs/ \
 	    --manifest sweep/manifest.jsonl
 
@@ -128,6 +139,7 @@ sweep:
 	    --mission sweep/mission.script \
 	    --tles src/static/tles_cache.parquet \
 	    --sw-cache src/static/sw_cache.parquet \
+	    --gmat-sw-file src/static/SpaceWeather-All-v1.2.txt \
 	    --output-dir outputs/ \
 	    --manifest sweep/manifest.jsonl
 
@@ -155,6 +167,7 @@ cda-sensitivity:
 	    --tles src/static/tles_cache.parquet \
 	    --subset-ids src/static/sensitivity_subset_pair_ids.txt \
 	    --sw-cache src/static/sw_cache.parquet \
+	    --gmat-sw-file src/static/SpaceWeather-All-v1.2.txt \
 	    --output-root outputs/_cda_sensitivity \
 	    --output-dir outputs
 
@@ -173,6 +186,7 @@ maneuver-threshold-sensitivity:
 	    --baseline-corpus src/static/tles_cache.parquet \
 	    --augment-corpus outputs/tles_cache_200m.parquet \
 	    --sw-cache src/static/sw_cache.parquet \
+	    --gmat-sw-file src/static/SpaceWeather-All-v1.2.txt \
 	    --output-root outputs/_maneuver_threshold_sensitivity \
 	    --out outputs/all_runs_maneuver_augment.parquet
 

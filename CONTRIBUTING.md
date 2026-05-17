@@ -29,6 +29,11 @@ make install-egm2008    # one-time: fetch NGA's EGM2008 coefficients and install
                         # If NGA is unreachable, download
                         # https://earth-info.nga.mil/php/download.php?file=egm-08spherical
                         # manually and pass it with `--source <path>`.
+make fetch-gmat-sw      # refresh src/static/SpaceWeather-All-v1.2.txt from
+                        # CelesTrak if a newer observed-data horizon is needed.
+                        # Optional — the committed snapshot covers the April
+                        # 2026 corpus window. GMAT reads this via the
+                        # FM.Drag.CSSISpaceWeatherFile script override.
 make sweep              # or invoke sweep/run_sweep.py directly
 ```
 

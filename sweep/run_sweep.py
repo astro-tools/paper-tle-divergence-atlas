@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import json
 import sys
 import time
 from dataclasses import dataclass
@@ -61,7 +62,12 @@ from gmat_sweep import (
 from sgp4.api import Satrec, jday
 from tqdm import tqdm
 
-from sweep.space_weather import SwRow, load_sw_cache, lookup_for_epoch
+from sweep.space_weather import (
+    SwRow,
+    load_sw_cache,
+    lookup_for_epoch,
+    verify_gmat_sw_coverage,
+)
 from sweep.spacecraft_props import CD, CR
 
 DEFAULT_SMOKE_N: Final = 8  # split evenly across the Δt buckets
@@ -220,7 +226,13 @@ def _gmat_epoch_string(epoch: pd.Timestamp) -> str:
     return f"{e.strftime('%d %b %Y %H:%M:%S')}.{e.microsecond // 1000:03d}"
 
 
-def _build_run_spec(pre: _Preprocessed, mission_path: Path, output_root: Path) -> RunSpec:
+def _build_run_spec(
+    pre: _Preprocessed,
+    mission_path: Path,
+    output_root: Path,
+    *,
+    gmat_sw_file: Path,
+) -> RunSpec:
     return RunSpec(
         script_path=mission_path,
         overrides={
@@ -239,6 +251,10 @@ def _build_run_spec(pre: _Preprocessed, mission_path: Path, output_root: Path) -
             # GMAT Variables override via the .Value pseudo-field: bare name
             # alone fails gmat-run's "Resource.Field" path validation.
             "elapsed_seconds.Value": float(pre.actual_dt_sec),
+            # Absolute path: GMAT resolves relative paths against the
+            # executable, not the script. Same reason `mission`/`tles`/
+            # `output_dir` get .resolve()'d in main().
+            "FM.Drag.CSSISpaceWeatherFile": str(gmat_sw_file),
         },
         output_dir=output_root / f"run_{pre.run_id}",
         run_id=pre.run_id,
@@ -357,6 +373,21 @@ def parse_args() -> argparse.Namespace:
         required=True,
         help="Path to space-weather cache parquet (built by `make fetch-sw`)",
     )
+    parser.add_argument(
+        "--gmat-sw-file",
+        type=Path,
+        required=True,
+        help="Path to the CssiSpaceWeather text file passed to GMAT via "
+        "FM.Drag.CSSISpaceWeatherFile (committed at "
+        "src/static/SpaceWeather-All-v1.2.txt; refresh with `make fetch-gmat-sw`)",
+    )
+    parser.add_argument(
+        "--window",
+        type=Path,
+        default=Path("src/static/window.json"),
+        help="Path to the corpus window JSON used to verify the GMAT SW file's "
+        "observed-data horizon covers the analysis epochs.",
+    )
     return parser.parse_args()
 
 
@@ -390,6 +421,7 @@ _OVERRIDE_COLUMNS: Final = (
     "Sat.Cr",
     "Sat.SRPArea",
     "elapsed_seconds.Value",
+    "FM.Drag.CSSISpaceWeatherFile",
 )
 
 
@@ -439,12 +471,15 @@ def _dispatch_sweep(
     manifest_path: Path,
     workers: int,
     resume: bool,
+    gmat_sw_file: Path,
 ) -> None:
     if resume:
-        _resume_dispatch(preprocessed, mission, output_dir, manifest_path, workers)
+        _resume_dispatch(preprocessed, mission, output_dir, manifest_path, workers, gmat_sw_file)
         return
 
-    run_specs = [_build_run_spec(p, mission, output_dir) for p in preprocessed]
+    run_specs = [
+        _build_run_spec(p, mission, output_dir, gmat_sw_file=gmat_sw_file) for p in preprocessed
+    ]
     parameter_spec = {
         "_kind": "explicit",
         "columns": list(_OVERRIDE_COLUMNS),
@@ -469,6 +504,7 @@ def _resume_dispatch(
     output_dir: Path,
     manifest_path: Path,
     workers: int,
+    gmat_sw_file: Path,
 ) -> None:
     """Re-dispatch only failed and missing runs against the existing manifest.
 
@@ -508,7 +544,7 @@ def _resume_dispatch(
         return
 
     run_specs = sorted(
-        (_build_run_spec(p, mission, output_dir) for p in pre_subset),
+        (_build_run_spec(p, mission, output_dir, gmat_sw_file=gmat_sw_file) for p in pre_subset),
         key=lambda s: s.run_id,
     )
     print(
@@ -611,8 +647,17 @@ def main() -> int:
     args.manifest = args.manifest.resolve()
     args.mission = args.mission.resolve()
     args.tles = args.tles.resolve()
+    args.gmat_sw_file = args.gmat_sw_file.resolve()
     args.output_dir.mkdir(parents=True, exist_ok=True)
     args.manifest.parent.mkdir(parents=True, exist_ok=True)
+
+    window_end = dt.datetime.fromisoformat(json.loads(args.window.read_text())["end"]).date()
+    end = verify_gmat_sw_coverage(args.gmat_sw_file, window_end)
+    print(
+        f"GMAT space-weather file {args.gmat_sw_file} covers observed through "
+        f"{end.isoformat()} (corpus window ends {window_end.isoformat()})",
+        file=sys.stderr,
+    )
 
     # Resume if an existing manifest matches the current corpus; otherwise
     # fresh dispatch. The fresh path always re-runs from scratch; resume
@@ -661,6 +706,7 @@ def main() -> int:
         args.manifest,
         args.workers,
         resume=resume,
+        gmat_sw_file=args.gmat_sw_file,
     )
     print(f"  sweep finished in {time.monotonic() - t0:.1f} s", file=sys.stderr)
 

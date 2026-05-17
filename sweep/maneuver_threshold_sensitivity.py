@@ -212,6 +212,7 @@ def run_augment_sweep(
     sw_lookup: dict,
     output_root: Path,
     workers: int,
+    gmat_sw_file: Path,
 ) -> pd.DataFrame:
     """Preprocess, dispatch GMAT, postprocess, and aggregate the augment set.
 
@@ -240,7 +241,9 @@ def run_augment_sweep(
     if not preprocessed:
         raise RuntimeError("no pairs survived preprocessing")
 
-    specs = [_build_run_spec(p, mission, output_root) for p in preprocessed]
+    specs = [
+        _build_run_spec(p, mission, output_root, gmat_sw_file=gmat_sw_file) for p in preprocessed
+    ]
 
     parameter_spec = {
         "_kind": "explicit",
@@ -302,6 +305,13 @@ def parse_args() -> argparse.Namespace:
         help="Path to space-weather cache parquet (built by `make fetch-sw`)",
     )
     parser.add_argument(
+        "--gmat-sw-file",
+        type=Path,
+        default=Path("src/static/SpaceWeather-All-v1.2.txt"),
+        help="Path to the CssiSpaceWeather text file passed to GMAT via "
+        "FM.Drag.CSSISpaceWeatherFile.",
+    )
+    parser.add_argument(
         "--output-root",
         type=Path,
         default=Path("outputs/_maneuver_threshold_sensitivity"),
@@ -357,7 +367,14 @@ def main() -> int:
     sw_lookup = load_sw_cache(args.sw_cache)
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    df = run_augment_sweep(augment_pairs, args.mission, sw_lookup, args.output_root, args.workers)
+    df = run_augment_sweep(
+        augment_pairs,
+        args.mission,
+        sw_lookup,
+        args.output_root,
+        args.workers,
+        args.gmat_sw_file.resolve(),
+    )
     df.to_parquet(args.out, index=False)
     print(
         f"wrote {args.out}: {len(df)} row(s), {len(df.columns)} col(s)",

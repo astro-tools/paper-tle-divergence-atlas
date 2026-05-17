@@ -198,6 +198,7 @@ def run_one_factor(
     factor: float,
     output_root: Path,
     workers: int,
+    gmat_sw_file: Path,
 ) -> pd.DataFrame:
     """Run the GMAT sweep at a single CdA factor; return the aggregated frame.
 
@@ -226,7 +227,9 @@ def run_one_factor(
     if not preprocessed:
         raise RuntimeError(f"no pairs survived preprocessing at CdA factor {factor:g}")
 
-    base_specs = [_build_run_spec(p, mission, factor_dir) for p in preprocessed]
+    base_specs = [
+        _build_run_spec(p, mission, factor_dir, gmat_sw_file=gmat_sw_file) for p in preprocessed
+    ]
     scaled_specs = [_scale_drag_area(s, factor) for s in base_specs]
 
     parameter_spec = {
@@ -289,6 +292,13 @@ def parse_args() -> argparse.Namespace:
         help="Path to space-weather cache parquet (built by `make fetch-sw`)",
     )
     parser.add_argument(
+        "--gmat-sw-file",
+        type=Path,
+        default=Path("src/static/SpaceWeather-All-v1.2.txt"),
+        help="Path to the CssiSpaceWeather text file passed to GMAT via "
+        "FM.Drag.CSSISpaceWeatherFile.",
+    )
+    parser.add_argument(
         "--output-root",
         type=Path,
         default=Path("outputs/_cda_sensitivity"),
@@ -344,6 +354,7 @@ def main() -> int:
     output_root = args.output_root.resolve()
     output_root.mkdir(parents=True, exist_ok=True)
     args.output_dir.mkdir(parents=True, exist_ok=True)
+    gmat_sw_file = args.gmat_sw_file.resolve()
 
     for factor in args.factor:
         df = run_one_factor(
@@ -353,6 +364,7 @@ def main() -> int:
             factor,
             output_root,
             args.workers,
+            gmat_sw_file,
         )
         label = _FACTOR_LABELS.get(float(factor))
         if label is None:

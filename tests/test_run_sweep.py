@@ -237,10 +237,18 @@ class TestBuildRunSpec:
             ap_daily=8.0,
         )
 
-    def test_overrides_complete(self) -> None:
-        from pathlib import Path
+    _SW_FILE = Path("/abs/path/to/SpaceWeather-All-v1.2.txt")
 
-        spec = _build_run_spec(self._pre(), Path("mission.script"), Path("outputs"))
+    def _spec(self, run_id: int = 3) -> object:
+        return _build_run_spec(
+            self._pre(run_id),
+            Path("mission.script"),
+            Path("outputs"),
+            gmat_sw_file=self._SW_FILE,
+        )
+
+    def test_overrides_complete(self) -> None:
+        spec = self._spec()
         assert set(spec.overrides) == {
             "Sat.Epoch",
             "Sat.X",
@@ -255,24 +263,28 @@ class TestBuildRunSpec:
             "Sat.Cr",
             "Sat.SRPArea",
             "elapsed_seconds.Value",
+            "FM.Drag.CSSISpaceWeatherFile",
         }
 
     def test_per_sat_props_propagate_into_overrides(self) -> None:
-        from pathlib import Path
-
         from sweep.spacecraft_props import CD, CR
 
-        spec = _build_run_spec(self._pre(), Path("m.script"), Path("outputs"))
+        spec = self._spec()
         assert spec.overrides["Sat.DryMass"] == 305.0
         assert spec.overrides["Sat.DragArea"] == 5.0
         assert spec.overrides["Sat.SRPArea"] == 5.0
         assert spec.overrides["Sat.Cd"] == CD
         assert spec.overrides["Sat.Cr"] == CR
 
-    def test_output_dir_nests_run_id(self) -> None:
-        from pathlib import Path
+    def test_gmat_sw_file_in_overrides(self) -> None:
+        # Per-run override is the only way to feed GMAT a project-local SW
+        # file without mutating the install. Value is the string form of
+        # the absolute path so it serialises cleanly into the manifest.
+        spec = self._spec()
+        assert spec.overrides["FM.Drag.CSSISpaceWeatherFile"] == str(self._SW_FILE)
 
-        spec = _build_run_spec(self._pre(run_id=7), Path("m.script"), Path("outputs"))
+    def test_output_dir_nests_run_id(self) -> None:
+        spec = self._spec(run_id=7)
         assert spec.output_dir == Path("outputs/run_7")
         assert spec.run_id == 7
 
@@ -281,15 +293,11 @@ class TestBuildRunSpec:
         # stale partial outputs left by a Ctrl-C'd worker. Without it,
         # every retry of an interrupted run_id fails with "working_dir
         # already contains output files".
-        from pathlib import Path
-
-        spec = _build_run_spec(self._pre(), Path("m.script"), Path("outputs"))
+        spec = self._spec()
         assert spec.run_options == {"overwrite": True}
 
     def test_override_values_are_json_safe(self) -> None:
-        from pathlib import Path
-
-        spec = _build_run_spec(self._pre(), Path("m.script"), Path("outputs"))
+        spec = self._spec()
         # RunSpec.overrides values must be JSON-encodable for the manifest.
         # Floats and strings; no numpy scalars.
         for value in spec.overrides.values():
@@ -445,6 +453,7 @@ class TestResumeDispatchScriptHashCheck:
                 output_dir=tmp_path,
                 manifest_path=manifest,
                 workers=1,
+                gmat_sw_file=tmp_path / "SpaceWeather-All-v1.2.txt",
             )
 
 
