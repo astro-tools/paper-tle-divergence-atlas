@@ -34,3 +34,25 @@ rule fig_powerlaw_fits:
         "--all-runs {input.all_runs} "
         "--out {output.pdf} "
         "--table-out {output.table}"
+
+
+# _propagator_wins.py is an analysis script (no figure PDF) that emits
+# the §4.2 main-body table src/tex/tables/tab_propagator_wins.tex from
+# outputs/all_runs.parquet. ms.tex \input{}s the table, so the build
+# DAG needs a producer; the JSON sibling carries the bootstrap CIs that
+# the prose quotes inline.
+
+rule tab_propagator_wins:
+    input:
+        all_runs="outputs/all_runs.parquet",
+        script="src/scripts/_propagator_wins.py",
+    output:
+        json="outputs/propagator_wins.json",
+        table="src/tex/tables/tab_propagator_wins.tex",
+    conda:
+        "environment.yml"
+    shell:
+        "python {input.script} "
+        "--all-runs {input.all_runs} "
+        "--json-out {output.json} "
+        "--table-out {output.table}"

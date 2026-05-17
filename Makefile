@@ -1,4 +1,4 @@
-.PHONY: help env fetch-tles fetch-satcat fetch-sw install-egm2008 build-corpus build-maneuver-jumps build-rejection-counts build-sensitivity-subset build smoke sweep aggregate sweep-stats diagnostics cda-sensitivity cda-sensitivity-table maneuver-threshold-sensitivity maneuver-threshold-table h3-regression figures clean
+.PHONY: help env fetch-tles fetch-satcat fetch-sw install-egm2008 build-corpus build-maneuver-jumps build-rejection-counts build-sensitivity-subset build smoke sweep aggregate sweep-stats diagnostics cda-sensitivity cda-sensitivity-table maneuver-threshold-sensitivity maneuver-threshold-table h3-regression propagator-wins figures clean
 
 help:
 	@echo "Targets:"
@@ -53,6 +53,10 @@ help:
 	@echo "                   emitted as outputs/h3_regression.json. Run by"
 	@echo "                   fig_solar_modulation.py internally; this target is for"
 	@echo "                   local inspection only."
+	@echo "  propagator-wins -- per-(shell x Δt) hi-fid-vs-SGP4 win fractions with"
+	@echo "                     sat-level bootstrap CIs on 3D L2 and along-track,"
+	@echo "                     emitted as outputs/propagator_wins.json plus the"
+	@echo "                     §4.2 main-body table src/tex/tables/tab_propagator_wins.tex."
 	@echo "  figures      -- regenerate figures from outputs/"
 	@echo "  clean        -- remove generated artifacts (PDF, figures, snakemake state)"
 	@echo ""
@@ -188,6 +192,12 @@ h3-regression:
 	    --all-runs outputs/all_runs.parquet \
 	    --sw-cache src/static/sw_cache.parquet \
 	    --out outputs/h3_regression.json
+
+propagator-wins:
+	python src/scripts/_propagator_wins.py \
+	    --all-runs outputs/all_runs.parquet \
+	    --json-out outputs/propagator_wins.json \
+	    --table-out src/tex/tables/tab_propagator_wins.tex
 
 figures:
 	snakemake --cores 1 src/tex/figures
