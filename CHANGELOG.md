@@ -22,8 +22,3 @@ Initial citeable release of *How long can you trust a Starlink TLE? An empirical
 - `make bundle` target producing the canonical 17-file Zenodo deposit at the repository root.
 - `make arxiv-tarball` target wrapping `showyourwork tarball` with a post-processor that strips dotfiles and showyourwork v0.4.3's root-level figure/table duplicates.
 - Reproducibility surface: `make build` renders `ms.pdf` from a Zenodo-cached sweep bundle on a clean checkout with no local GMAT installation; `make sweep` reproduces the bundle from scratch given GMAT R2026a.
-
-### Reviewed
-
-- Two external pre-deposit reviews from Prof. R1 (Major Revision, long-form thematic critique) and Prof. R2 ("very strong … close to conference-ready", section-by-section comments) were addressed across nine themes covering truth-floor terminology, dynamical-consistency framing, H2 reframing, the full atmosphere-model swap to NRLMSISE-00, sensitivity studies, statistical-estimator specification, power-law physical derivation, H3 regression specification, and related-work positioning against SGP4-XP / dSGP4 / ML correctors.
-- A pre-deposit final review pass bundled factual fixes and reviewer-feedback follow-ups across §1–§5 and the figure captions.
