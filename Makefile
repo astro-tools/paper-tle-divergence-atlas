@@ -1,4 +1,4 @@
-.PHONY: help env fetch-tles fetch-satcat fetch-sw fetch-gmat-sw install-egm2008 build-corpus build-maneuver-jumps build-rejection-counts build-sensitivity-subset build smoke sweep aggregate sweep-stats diagnostics cda-sensitivity cda-sensitivity-table maneuver-threshold-sensitivity maneuver-threshold-table h3-regression propagator-wins figures clean
+.PHONY: help env fetch-tles fetch-satcat fetch-sw fetch-gmat-sw install-egm2008 build-corpus build-maneuver-jumps build-rejection-counts build-sensitivity-subset build smoke sweep aggregate sweep-stats diagnostics cda-sensitivity cda-sensitivity-table maneuver-threshold-sensitivity maneuver-threshold-table h3-regression propagator-wins figures bundle clean
 
 help:
 	@echo "Targets:"
@@ -62,6 +62,9 @@ help:
 	@echo "                     emitted as outputs/propagator_wins.json plus the"
 	@echo "                     §4.2 main-body table src/tex/tables/tab_propagator_wins.tex."
 	@echo "  figures      -- regenerate figures from outputs/"
+	@echo "  bundle       -- zip the canonical Zenodo deposit bundle to bundle.zip"
+	@echo "                  (aggregated sweep outputs + manifest + mission script +"
+	@echo "                  EGM2008 installer; flat layout)."
 	@echo "  clean        -- remove generated artifacts (PDF, figures, snakemake state)"
 	@echo ""
 	@echo "After 'make env', activate with: conda activate paper-tle-divergence-atlas"
@@ -216,6 +219,9 @@ propagator-wins:
 
 figures:
 	snakemake --cores 1 src/tex/figures
+
+bundle:
+	python -m sweep.bundle
 
 clean:
 	rm -rf .snakemake .showyourwork src/tex/figures ms.pdf
