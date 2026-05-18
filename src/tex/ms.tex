@@ -63,8 +63,11 @@ $\sim 4$-hour update interval) to $\sim 38$~km (SGP4) /
 $\sim 76$~km (high-fid) at $7$~d. Second, the high-fidelity
 propagator initialised from a public TLE does not improve over
 SGP4 at any of the four staleness horizons sampled; SGP4 wins on
-$\sim 65$--$75\%$ of pairs depending on horizon, a negative result
-that decomposes into three mechanisms --- at-epoch operator-OD
+$\sim 65$--$75\%$ of pairs depending on horizon --- with the
+v2-mini cohort at long $\Delta t$ the one (cohort $\times$ horizon)
+regime where high-fidelity overtakes SGP4 on a majority of pairs,
+visible at both populated shells. The bulk negative result
+decomposes into three mechanisms --- at-epoch operator-OD
 residual dominance, SGP4-vs-SGP4 truth-construction kernel
 alignment, and preferential spacecraft-property bias amplification
 on the high-fidelity arm. Third, an exploratory regression of the
@@ -1725,10 +1728,10 @@ from zero only at one of them.
 
 The empirical headline of Section~\ref{sec:results} --- that the
 high-fidelity propagator initialised from a public TLE is behind
-SGP4 against the next-TLE proxy at every $\Delta t$ bucket of the
-corpus, losing on $65$--$75\%$ of pairs depending on horizon
-(Table~\ref{tab:propagator-wins}) --- supports a more specific
-reading than ``high-fidelity propagation is wasted''. The
+SGP4 against the next-TLE proxy at every shell-pooled $\Delta t$
+bucket of the corpus, losing on $65$--$75\%$ of pairs depending on
+horizon (Table~\ref{tab:propagator-wins}) --- supports a more
+specific reading than ``high-fidelity propagation is wasted''. The
 load-bearing statement is the conditional one: \emph{higher
 physical fidelity in the propagator does not imply superior
 predictive accuracy against next-TLE-derived truth when the initial
@@ -1739,7 +1742,10 @@ force model in isolation but of the joint
 public-TLE workflow imposes. Section~\ref{sec:discussion-h2-mechanisms}
 walks that joint object through three mechanisms whose dominance
 regimes partition the four $\Delta t$ buckets cleanly between them;
-the along-track structure of the error budget
+Section~\ref{sec:discussion-v2mini} resolves the bulk negative
+result by cohort and isolates the v2-mini long-$\Delta t$ regime
+where high-fidelity propagation overtakes SGP4 on a majority of
+pairs; the along-track structure of the error budget
 (Section~\ref{sec:discussion-along-track}), the practitioner-facing
 quantitative verdict (Section~\ref{sec:discussion-practical}), and
 the limitations and follow-ups
@@ -2311,9 +2317,13 @@ $k=1$ likelihood-ratio test does not reject (H1,
 Table~\ref{tab:powerlaw}); the
 high-fidelity propagator initialised from a public TLE does
 \emph{not} improve median position error over SGP4 at any of the
-four staleness horizons sampled by this corpus, losing on
-$\sim 65$--$75\%$ of pairs depending on $\Delta t$ (H2,
-Table~\ref{tab:propagator-wins}); and an exploratory regression of
+four shell-pooled staleness horizons sampled by this corpus, losing
+on $\sim 65$--$75\%$ of pairs depending on $\Delta t$, with the
+exception of the v2-mini cohort at long $\Delta t$ where
+high-fidelity overtakes SGP4 on a majority of pairs at both
+populated shells (H2, Tables~\ref{tab:propagator-wins} and
+\ref{tab:propagator-wins-by-gen},
+Section~\ref{sec:discussion-v2mini}); and an exploratory regression of
 the per-satellite SGP4 staleness coefficient $A$ against F10.7
 returns a slope that is direction-consistent with the
 $\partial\,\log\rho / \partial\,\mathrm{F}10.7 > 0$ expectation at
@@ -2333,17 +2343,24 @@ propagator quality
 (Section~\ref{sec:discussion-h2-mechanisms}, mechanism 1). Second,
 high-fidelity propagation should not be invested in for public-TLE
 workflows unless the consumer also brings better-than-operator-OD
-initial states; the gain over SGP4 from a force-model upgrade alone
-is negative or marginal in every cell of the corpus, and the
+initial states or operates on the v2-mini cohort at long
+$\Delta t$; the gain over SGP4 from a force-model upgrade alone is
+negative or marginal in every shell-pooled cell of the corpus
+except the cohort-resolved v2-mini long-$\Delta t$ regime, and the
 asymmetric mechanism-3 amplification of spacecraft-property
 uncertainty on the high-fidelity arm sets an upper bound on what a
 $\pm 20\%$ improvement in $C_{D} \cdot A$ knowledge can recover
 (Appendix~\ref{app:cda-sensitivity}). Third, the v2-mini cohort is
-the high-uncertainty cohort: SGP4 $7$~d medians are $2$--$4\times$
-higher than v1.x at the same altitude
-(Section~\ref{sec:results-h1}), and operational staleness budgets
-on that cohort should be sized $\sim 2\times$ looser than v1.x
-correspondingly.
+the high-uncertainty cohort \emph{and} the cohort where the
+propagator choice is most defensible: SGP4 $7$~d medians are
+$2$--$4\times$ higher than v1.x at the same altitude
+(Section~\ref{sec:results-h1}), operational staleness budgets on
+that cohort should be sized $\sim 2\times$ looser than v1.x
+correspondingly, and at $\Delta t \gtrsim 3$~d the high-fidelity
+arm becomes the better predictor on a majority of v2-mini pairs at
+both $550$ and $560$~km
+(Section~\ref{sec:discussion-v2mini},
+Table~\ref{tab:propagator-wins-by-gen}).
 
 Beyond these three takeaways, the per-cell power-law atlas of
 Table~\ref{tab:powerlaw} is intended to be \emph{reusable} as a
