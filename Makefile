@@ -211,7 +211,8 @@ propagator-wins:
 	python src/scripts/_propagator_wins.py \
 	    --all-runs outputs/all_runs.parquet \
 	    --json-out outputs/propagator_wins.json \
-	    --table-out src/tex/tables/tab_propagator_wins.tex
+	    --table-out src/tex/tables/tab_propagator_wins.tex \
+	    --by-gen-table-out src/tex/tables/tab_propagator_wins_by_gen.tex
 
 figures:
 	snakemake --cores 1 src/tex/figures
