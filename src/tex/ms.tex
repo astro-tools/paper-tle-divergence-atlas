@@ -45,10 +45,12 @@ are compared against the operator's subsequently released ephemeris
 evaluated as proxy truth. Three findings emerge. First, position
 error follows a per-cell power law
 $\lVert\Delta\mathbf{r}(\Delta t)\rVert \approx A\,\Delta t^{k}$
-whose fitted exponents lie in the open interval $(1,\,2)$ on every
-populated (shell~$\times$~generation) cell under both propagators,
+whose fitted exponents lie in $(1,\,2)$ on every populated v2-mini
+cell and on the high-fidelity v1.x propagator at $540$ and $560$~km,
+while the SGP4 v1.x cells and the high-fidelity v1.x cell at
+$550$~km are sub-linear ($k \lesssim 1$); the corpus is therefore
 consistent with a mixture of mean-motion bias and constant unmodelled
-in-track acceleration; pooled L$_{2}$ medians grow from
+in-track acceleration whose relative weight varies by cohort; pooled L$_{2}$ medians grow from
 $\sim 1$~km at the $6$~h horizon (just beyond the operator's
 $\sim 4$-hour update interval) to $\sim 38$~km (SGP4) /
 $\sim 76$~km (high-fid) at $7$~d. Second, the high-fidelity
@@ -58,10 +60,14 @@ $\sim 65$--$75\%$ of pairs depending on horizon, a negative result
 that decomposes into three mechanisms --- at-epoch operator-OD
 residual dominance, SGP4-vs-SGP4 truth-construction kernel
 alignment, and preferential spacecraft-property bias amplification
-on the high-fidelity arm. Third, F10.7 modulation of the staleness
-coefficient is direction-consistent with the LEO density-gradient
-expectation but clears conventional significance only at
-$560$~km on the present moderate-activity corpus. Practitioners
+on the high-fidelity arm. Third, an exploratory regression of the
+per-satellite SGP4 staleness coefficient against F10.7 returns a
+positive slope at one of three altitude shells ($560$~km) that
+clears conventional significance, with the other two shells slope-
+ambiguous on the present $30$-day, moderate-activity, $\sim 17$~sfu
+window; we read the H3 evidence as direction-consistent with the
+LEO density-gradient expectation but \emph{not} a calibrated
+F10.7-modulation measurement on this corpus. Practitioners
 should regard public Starlink TLEs as adequate inside the operator's
 update cadence, treat the per-cell power-law fits as cohort-
 resolved staleness budgets, and avoid investing in
@@ -121,7 +127,7 @@ stratified by altitude shell (540, 550, 560~km) and platform generation
 pair is propagated both with SGP4 from the starting TLE and with a
 high-fidelity propagation in NASA's General Mission Analysis Tool
 (GMAT), and the two predictions are compared against the operator's
-next-TLE position evaluated as truth. We fit a per-cell power-law
+next-TLE position evaluated as proxy truth. We fit a per-cell power-law
 staleness curve $\lVert\Delta\mathbf{r}(\Delta t)\rVert \approx
 A\,\Delta t^{k}$ with satellite-level bootstrap uncertainties
 (Hypothesis~H1, Figures~\ref{fig:sgp4-growth}
@@ -455,7 +461,7 @@ inter-TLE interval is $4.8$~h (90th percentile $15.9$~h, 99th
 percentile $23.9$~h, single maximum $108$~h); $17.6\%$ of
 consecutive intervals exceed $12$~h, and the median satellite has
 a longest within-window gap of $25.5$~h, rising to $41.7$~h at
-the 95th percentile across sats. Empirically, $40\%$
+the 95th percentile across sats. Empirically, $51\%$
 of $(\text{starting~TLE} \times \Delta t)$ attempts produce a
 matched pair within the $\pm 2$~h tolerance and the rest do not
 ($60.6\%$ unmatched at $\Delta t = 6$~h, $32.1\%$ at $1$~d,
@@ -463,8 +469,11 @@ $43.9\%$ at $3$~d, $59.3\%$ at $7$~d). The high unmatched
 fractions are dominated by the Poisson-window character of the
 matching --- the $4$~h target window is the same order as the
 typical inter-TLE spacing, so a randomly-placed target window has
-only an $\sim 40\%$ chance of containing any TLE in dense
+only an $\sim 50\%$ chance of containing any TLE even in dense
 tracking conditions --- rather than by tracking-gap selection.
+Of the $30{,}451$ matched candidates, $24{,}641$ ($81\%$) survive
+the Section~\ref{sec:methods-pairs} maneuver filter to enter the
+locked corpus.
 The bias toward well-tracked sat-days is quantitatively bounded:
 the 95th-percentile worst per-sat gap of $\sim 42$~h is well
 inside the longest $\Delta t$ target ($168$~h), so no satellite is
@@ -633,10 +642,12 @@ sequence.
 EGM2008 is loaded at degree and order $70$ from a project-installed
 coefficient file produced by parsing the NGA flat-text
 \texttt{EGM2008\_to2190\_TideFree} distribution into the GMAT
-\texttt{.cof} format; truncation at degree $70$ reproduces the
-geopotential at LEO altitudes to sub-millimetre precision over
-multi-day arcs against the full $2160\!\times\!2160$ expansion
-\citep{pavlis2012}. Atmospheric drag uses GMAT's NRLMSISE-00
+\texttt{.cof} format; the truncation error at degree $70$ relative
+to the full $2160\!\times\!2160$ expansion is small enough at LEO
+altitudes \citep{pavlis2012} that it sits well below the integrated
+drag and operator-OD-residual contributions to the kilometre-scale
+position errors characterised by this analysis, and is not
+load-bearing for any of the comparisons that follow. Atmospheric drag uses GMAT's NRLMSISE-00
 implementation \citep{picone2002}, the SSA community standard for
 thermospheric density at LEO altitudes; the integrator reads CSSI-format
 F10.7 and Ap inputs from the project-local space-weather file described
@@ -796,6 +807,7 @@ weighted-with-unit-weights ordinary-least-squares regression of
 $\log_{10}\lVert\Delta\mathbf{r}\rVert$ on
 $\log_{10}(\Delta t / 1\,\text{h})$, fit on every pair in the
 (altitude shell $\times$ pooled generation $\times$ propagator) cell.
+
 Each pair contributes its own measured $\Delta t$ (the
 \texttt{actual\_dt\_sec} column of the per-run parquet, which carries
 the realised epoch spacing inside the $\pm 2$~h matching tolerance);
@@ -808,8 +820,10 @@ $\mathcal{O}(10^{3})$ pairs, so the regression has $\mathcal{O}(10^{3})$
 degrees of freedom, not the four that a naive reading of the
 bucketed figures would suggest; per-pair fitting also lets the
 within-bucket spread in $\Delta t$ contribute information that a fit
-to per-bucket medians would discard. Per-pair weights are uniform:
-pair-level $\mathrm{SE}(\log_{10}\lVert\Delta\mathbf{r}\rVert)$ is
+to per-bucket medians would discard.
+
+Per-pair weights are uniform: pair-level
+$\mathrm{SE}(\log_{10}\lVert\Delta\mathbf{r}\rVert)$ is
 not available on the run parquet, and the satellite-level bootstrap
 introduced below absorbs the population scatter that an
 inverse-variance scheme would otherwise track.
@@ -822,7 +836,13 @@ the satellite rather than the pair level preserves within-satellite
 correlation across the four staleness buckets --- pairs sharing a
 ballistic coefficient, attitude duty cycle, and perturbation history
 are not independent observations, and a pair-level bootstrap would
-understate uncertainty by treating them as such. Asymmetric
+understate uncertainty by treating them as such. Reported CIs are
+correspondingly tight on well-populated cells because $n \approx 167$
+satellites per shell sample a geometrically narrow $(a, e, i)$
+neighbourhood, not because the resample under-accounts for the
+within-satellite covariance the construction specifically targets;
+the mixed-effects cross-check in Appendix~\ref{app:mixed-effects}
+verifies that the parametric slope agreement holds across cells. Asymmetric
 percentile intervals are reported as such; bias-corrected and
 accelerated (BCa) intervals are not adopted as a default because the
 percentile intervals are visually symmetric in every populated cell,
@@ -911,15 +931,16 @@ at $t_{i}$ gives
 i.\,e.\ $k = 2$ with $A = a_{\rm{res}} / 2$ (again in
 $\Delta t = 1\,\text{h}$ units).
 
-The empirical observation that fitted $k$ values across our
-populated cells fall in the open interval $(1,\,2)$ ---
-Table~\ref{tab:powerlaw} reports $k$ between $0.75$ and $1.44$
-across the SGP4 cells and $k$ between $1.14$ and $1.43$ across
-the high-fidelity cells --- is therefore the expected signature
-of a \emph{mixture} of the two error modes operating
-simultaneously: a partial $B^{\!\star}$ mis-fit at epoch and a
-residual constant-acceleration term, both feeding the
-along-track budget. The per-cell $(A,\,k)$ pair is, on this
+The empirical $k$ values across our populated cells span both sides
+of unity --- Table~\ref{tab:powerlaw} reports $k$ between
+$0.75$ and $1.44$ across the SGP4 cells and $k$ between $0.99$ and
+$1.28$ across the high-fidelity cells --- which is the expected
+signature of a \emph{mixture} of the two error modes operating
+simultaneously: a partial $B^{\!\star}$ mis-fit at epoch dragging
+$k$ toward unity (Eq.~\eqref{eq:powerlaw-k1}) and a residual
+constant-acceleration term dragging it toward two
+(Eq.~\eqref{eq:powerlaw-k2}), with the cohort-specific balance
+between them setting the per-cell exponent. The per-cell $(A,\,k)$ pair is, on this
 reading, a coarse two-parameter summary of the operator's
 epoch-time error budget for that satellite cohort: $A$ scales
 with the joint magnitude of both contributions evaluated at
@@ -1041,12 +1062,13 @@ F10.7 average as the predictor; the 81-day average is the
 long-term thermospheric driver that NRLMSISE-00 consumes
 internally and is the convention-matched predictor for any
 attempt to interpret $\hat\beta$ as a density-modulation slope.
+
 Over the 30-day corpus window the daily-mean predictor spans
 roughly $17$~sfu sat-to-sat ($\approx 104$--$138$), while the
 81-day-centred predictor compresses to $\approx 1.3$~sfu
-($\approx 124.6$--$125.9$) by construction, so the 81-day
+($\approx 124.6$--$125.9$) by construction. The 81-day
 robustness fit has very limited statistical leverage on the
-present window and we treat the daily-mean fit as the
+present window, so we treat the daily-mean fit as the
 load-bearing report.
 
 For each (shell, predictor) cell the full-sample OLS of
@@ -1068,27 +1090,32 @@ Section~\ref{sec:methods-statistics}.
 
 Empirical results are reported in
 Figure~\ref{fig:solar-modulation} and discussed in
-Section~\ref{sec:discussion}. The daily-mean fit returns
-$\hat\beta = +0.017$~per~sfu ($95\%$~CI $[-0.002,\,+0.036]$,
-$p = 0.07$, $R^{2} = 0.02$) at $540$~km (v1.x only at this
-shell);
-$\hat\beta = -0.009$~per~sfu ($95\%$~CI $[-0.029,\,+0.009]$,
-$p = 0.31$, $R^{2} = 0.45$) at $550$~km, with the slope
-consistent with zero and the interaction test failing to reject
-the additive model ($p_{\beta\times\mathrm{gen}} = 0.69$); and
-$\hat\beta = +0.014$~per~sfu ($95\%$~CI
-$[+0.001,\,+0.031]$, $p = 0.034$, $R^{2} = 0.24$) at $560$~km,
-the smallest positive slope to clear conventional significance.
+Section~\ref{sec:discussion}. The daily-mean fit returns, per
+shell:
+\begin{itemize}
+  \item $540$~km (v1.x only):
+  $\hat\beta = +0.017$~per~sfu ($95\%$~CI $[-0.002,\,+0.036]$,
+  $p = 0.07$, $R^{2} = 0.02$).
+  \item $550$~km (v1.x, v2-mini):
+  $\hat\beta = -0.009$~per~sfu ($95\%$~CI $[-0.029,\,+0.009]$,
+  $p = 0.31$, $R^{2} = 0.45$), with the slope consistent with
+  zero and the interaction test failing to reject the additive
+  model ($p_{\beta\times\mathrm{gen}} = 0.69$).
+  \item $560$~km (v1.x, v2-mini):
+  $\hat\beta = +0.014$~per~sfu ($95\%$~CI
+  $[+0.001,\,+0.031]$, $p = 0.034$, $R^{2} = 0.24$) --- the
+  smallest positive slope to clear conventional significance on
+  this corpus.
+\end{itemize}
 The high $R^{2}$ values at $550$ and $560$~km reflect the
-intercept covariate absorbing the cross-cohort baseline gap,
-not an explanatory contribution from F10.7. The interaction
-test at $560$~km does reject the additive restriction
-($p_{\beta\times\mathrm{gen}} = 0.005$), a single-shell
-departure from Eq.~\eqref{eq:h3-slope-altitude-only} that the
-narrow predictor span and modest cell counts make difficult to
-attribute cleanly to either a real cohort-specific
-F10.7 response or to a window-end sampling pattern, and which
-we flag rather than re-fit.
+intercept covariate absorbing the cross-cohort baseline gap, not
+an explanatory contribution from F10.7. The interaction test at
+$560$~km does reject the additive restriction
+($p_{\beta\times\mathrm{gen}} = 0.005$); the narrow predictor
+span and modest cell counts make the departure from
+Eq.~\eqref{eq:h3-slope-altitude-only} difficult to attribute
+cleanly to either a real cohort-specific F10.7 response or to a
+window-end sampling pattern, and we flag it rather than re-fit.
 
 The 81-day-centred robustness fits, refit on the same shells
 with the same ANCOVA design, return
@@ -1229,14 +1256,19 @@ rather than inter-shell. Walking the v1.x cells from $\Delta t = 6$~h
 upwards, the SGP4 median grows from $1.01$~km
 (550~km shell) to $2.60$, $5.64$, and $15.67$~km at $1$, $3$, and
 $7$~d respectively; the high-fidelity arm tracks the same curve
-shape but sits a factor of $1.6$--$7$ higher across the same cells.
-The pattern is repeated in the v2-mini cells with steeper growth:
-$0.96 \to 4.53 \to 25.11 \to 101.71$~km on the SGP4 arm at the
-$550$~km shell, with the high-fidelity arm again above SGP4 at every
-$\Delta t$. \emph{No populated cell of the corpus shows the
-high-fidelity median below the SGP4 median} -- a statement of the H2
-finding made directly on the per-bucket aggregates before any pairwise
-analysis is undertaken in Section~\ref{sec:results-h2}.
+shape at the same shell but sits a factor of $1.6$--$3.6$ higher
+across the four buckets, and is uniformly above SGP4 on v1.x across
+the corpus. The pattern partially carries over to v2-mini --- SGP4
+itself grows more steeply ($0.96 \to 4.53 \to 25.11 \to 101.71$~km on
+the SGP4 arm at the $550$~km shell) --- but the ordering of the two
+medians flips with $\Delta t$: the high-fidelity arm sits above SGP4
+at $6$~h and $1$~d but falls \emph{below} SGP4 at $3$~d ($23.3$
+vs.\ $25.1$~km) and $7$~d ($72.3$ vs.\ $101.7$~km) on the $550$~km
+v2-mini cell, and at $7$~d ($84.5$ vs.\ $89.8$~km) on the $560$~km
+v2-mini cell. The cohort-level pattern from the per-bucket
+aggregates --- high-fid uniformly above SGP4 on v1.x, crossing over
+below SGP4 on the long-$\Delta t$ v2-mini cells --- previews the
+pair-by-pair H2 reading of Section~\ref{sec:results-h2}.
 
 \begin{figure}[ht]
   \centering
@@ -1277,27 +1309,33 @@ Table~\ref{tab:powerlaw}. Three patterns survive the bootstrap.
 First, on the v1.x cohort SGP4 yields a sub-linear exponent
 ($\hat k$ ranges from $0.75$~$[0.69,\,0.83]$ at $550$~km through
 $0.84$~$[0.82,\,0.87]$ at $540$~km to $0.86$~$[0.82,\,0.89]$ at
-$560$~km), while the high-fidelity arm in the same cells yields
-super-linear exponents from $1.14$~$[1.08,\,1.20]$ at $550$~km to
-$1.43$~$[1.41,\,1.45]$ at $540$~km. The likelihood-ratio test rejects
-both $k = 1$ and $k = 2$ nulls at $p < 10^{-3}$ in every populated
-cell, so neither limiting case of
-Section~\ref{sec:methods-powerlaw-physics} suffices on its own; the
-mixture interpretation, with $\hat k \in (1,\,2)$ encoding the
-relative weight of a $B^{\!\star}$ mean-motion bias versus a
-constant unmodelled along-track acceleration, is the physically
-consistent reading. Second, the two propagators trade $A$ for $k$
-in opposite directions across the v1.x cells: high-fid carries the
-smaller coefficient at the $\Delta t = 1$~h normalisation point (the
-bolded entries of Table~\ref{tab:powerlaw}) but the steeper slope, so
-the two staleness curves cross within the corpus window and the
-gap of Figures~\ref{fig:sgp4-growth}--\ref{fig:hifi-growth} widens
-with $\Delta t$. Third, the v2-mini cohort is super-linear under
-\emph{both} propagators ($\hat k$ between $1.26$ and $1.44$), with
-SGP4 carrying the smaller coefficient at $\Delta t = 1$~h but the
-steeper slope -- the only cells of the corpus where the propagator
-with the smaller $A$ is also the propagator with the larger $k$, and
-where the staleness curves diverge rather than crossing.
+$560$~km), while the high-fidelity arm on the same cohort spans
+$0.99$~$[0.95,\,1.04]$ at $550$~km (where $\hat k$ sits at the
+$k=1$ boundary and the CI straddles it), $1.12$~$[1.08,\,1.15]$
+at $560$~km, and $1.28$~$[1.26,\,1.30]$ at $540$~km. The likelihood-ratio test
+rejects both the $k = 1$ and $k = 2$ nulls at $p < 10^{-3}$ in every
+populated cell except the high-fidelity v1.x cell at $550$~km, where
+the $k=1$ null is not rejected ($p_{k=1} = 0.76$,
+Table~\ref{tab:powerlaw}) and the cell sits in the mean-motion-bias
+limit of Section~\ref{sec:methods-powerlaw-physics}. Elsewhere the
+mixture interpretation, with $\hat k$ encoding the relative weight
+of a $B^{\!\star}$ mean-motion bias versus a constant unmodelled
+along-track acceleration, is the physically consistent reading.
+Second, the two propagators trade $A$ for $k$ in opposite directions
+across the v1.x cells: high-fid carries the smaller (or equal)
+coefficient at the $\Delta t = 1$~h normalisation point (the
+bolded entries of Table~\ref{tab:powerlaw}) but the steeper slope,
+so the two staleness curves cross within the corpus window and the
+v1.x gap of Figures~\ref{fig:sgp4-growth}--\ref{fig:hifi-growth}
+widens with $\Delta t$. Third, the v2-mini cohort is super-linear
+under \emph{both} propagators ($\hat k$ between $1.15$ and $1.44$),
+with the unusual feature that SGP4 carries the smaller coefficient
+\emph{and} the steeper slope at both shells, so on v2-mini it is the
+high-fidelity arm that becomes the slower-growing curve and the two
+staleness curves cross with SGP4 climbing past high-fid by $3$~d ---
+the §\ref{sec:results-h1}-paragraph statement of the v2-mini
+crossover that drives the H2 reading in
+Section~\ref{sec:results-h2}.
 
 \begin{figure}[ht]
   \centering
@@ -1309,8 +1347,14 @@ where the staleness curves diverge rather than crossing.
   pooling all of each drawn satellite's pairs in the cell, per the
   estimator specification in Section~\ref{sec:methods-statistics}. The
   visual tightness of the CI bars on the well-populated cells reflects
-  the $n \approx 167$ satellites per shell rather than under-accounting
-  for within-satellite correlation. Left subpanel per row: coefficient
+  the $n \approx 167$ satellites per shell, the geometric narrowness of
+  the Starlink shells in $(a, e, i)$, and log-axis compression of the
+  per-pair scatter --- not under-accounting for within-satellite
+  correlation, which the satellite-level resample is constructed
+  specifically to absorb (Section~\ref{sec:methods-statistics}); the
+  parametric mixed-effects cross-check of
+  Appendix~\ref{app:mixed-effects} returns slopes inside the
+  bootstrap CIs on every populated cell. Left subpanel per row: coefficient
   $A$ on a log axis; right subpanel: exponent $k$ with $k = 1$ marked.
   Numerical values are listed in Table~\ref{tab:powerlaw}.}
   \label{fig:powerlaw-fits}
@@ -1601,7 +1645,7 @@ predicted slope from zero on its own.
     \midrule
     540 & 167 & v1.x & $+0.017$ &
       $[-0.002,\,+0.036]$ & $0.07$ & --- \\
-    550 & 165 & v1.x, v2-mini & $-0.010$ &
+    550 & 165 & v1.x, v2-mini & $-0.009$ &
       $[-0.029,\,+0.009]$ & $0.31$ & $-0.54$ \\
     560 & 156 & v1.x, v2-mini & $+0.014$ &
       $[+0.001,\,+0.031]$ & $0.034$ & $-0.38$ \\
@@ -2073,11 +2117,12 @@ resample. A gravity-truncation sensitivity test at
 $40\!\times\!40$ and $20\!\times\!20$ would quantify the (small)
 effect of higher-order geopotential terms on the long-$\Delta t$
 high-fidelity arm and is straightforward to add against the
-existing sweep harness; we note explicitly that the present
-$70\!\times\!70$ truncation reproduces the EGM2008 geopotential
-at LEO altitudes to sub-millimetre precision over multi-day arcs
-\citep{pavlis2012} so the test is one of methodological completeness
-rather than expected sensitivity.
+existing sweep harness; the test is one of methodological
+completeness rather than expected sensitivity, given that the
+EGM2008 truncation error at $70\!\times\!70$ at LEO altitudes
+\citep{pavlis2012} sits well below the drag- and
+OD-residual-driven kilometre-scale errors the high-fidelity arm
+already carries.
 
 A complete uncertainty-propagation pipeline --- propagating the
 operator-OD covariance forward and combining it with force-model
@@ -2104,18 +2149,25 @@ Section~\ref{sec:introduction} resolve as follows:
 each populated (altitude shell $\times$ pooled generation) cell
 of the corpus carries a statistically distinguishable power-law
 staleness curve $\lVert\Delta\mathbf{r}(\Delta t)\rVert \approx
-A\,\Delta t^{k}$ with fitted exponents in $(1,\,2)$ on every cell
-under both propagators (H1, Table~\ref{tab:powerlaw}); the
+A\,\Delta t^{k}$, with fitted exponents in $(1,\,2)$ on every
+v2-mini cell and on the high-fidelity v1.x cells at $540$ and
+$560$~km, and sub-linear SGP4 v1.x cells plus an at-boundary
+high-fidelity v1.x cell at $550$~km that the
+$k=1$ likelihood-ratio test does not reject (H1,
+Table~\ref{tab:powerlaw}); the
 high-fidelity propagator initialised from a public TLE does
 \emph{not} improve median position error over SGP4 at any of the
 four staleness horizons sampled by this corpus, losing on
 $\sim 65$--$75\%$ of pairs depending on $\Delta t$ (H2,
-Table~\ref{tab:propagator-wins}); and solar-activity modulation of
-the per-satellite SGP4 staleness coefficient $A$ is direction-
-consistent with the
-$\partial\,\log\rho / \partial\,\mathrm{F}10.7 > 0$ expectation at LEO
-but clears conventional significance only at $560$~km on this
-30-day, moderate-activity corpus (H3, Figure~\ref{fig:solar-modulation}).
+Table~\ref{tab:propagator-wins}); and an exploratory regression of
+the per-satellite SGP4 staleness coefficient $A$ against F10.7
+returns a slope that is direction-consistent with the
+$\partial\,\log\rho / \partial\,\mathrm{F}10.7 > 0$ expectation at
+LEO but clears conventional significance at only one of the three
+shells ($560$~km) on this $30$-day, moderate-activity,
+$\sim 17$~sfu-span corpus, and should be read as preliminary
+rather than as a calibrated density-modulation measurement (H3,
+Figure~\ref{fig:solar-modulation}).
 
 Three practitioner-facing summaries condense the operational reading
 of these results. First, Starlink TLEs may be used unmodified up to
@@ -2171,8 +2223,13 @@ cache, with the 100\,m threshold marked.
   \includegraphics[width=\linewidth]{figures/fig_maneuver_filter.pdf}
   \caption{Distribution of $|\Delta a|$ between consecutive Starlink
   TLEs across the raw cache. The dashed line marks the 100\,m maneuver
-  filter threshold; the two modes (quiet vs.\ maneuvering pairs) sit
-  cleanly on either side.}
+  filter threshold. The OD-noise mode and the maneuver mode overlap in
+  the $50$--$200$~m region rather than separating at a clean valley
+  (the expected signature of Starlink's continuous low-thrust
+  station-keeping cadence); the 100\,m threshold cuts at the right
+  edge of the OD-noise mode, and the
+  Appendix~\ref{app:maneuver-threshold-sensitivity} sensitivity
+  perturbation tests the choice at $\pm 50$~m.}
   \label{fig:maneuver-filter}
   \script{fig_maneuver_filter.py}
 \end{figure}
