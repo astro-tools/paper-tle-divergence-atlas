@@ -14,14 +14,29 @@ require_inputs: true
 #
 # Keyed by the *version* DOI (showyourwork rejects concept DOIs at
 # preprocess time so the snapshot is locked). The current entry points
-# at a Zenodo Sandbox deposit holding the Day-4 aggregated sweep
-# output — Sandbox is not long-term storage and may be cleaned
-# periodically; the v0.1.0 release-cut PR swaps this for the real
-# Zenodo DOI.
+# at the v0.1.0 candidate Zenodo Sandbox deposit holding the canonical
+# bundle.zip produced by `make bundle` (aggregated main sweep,
+# CdA/maneuver-threshold sensitivity-subset frames, mixed-effects
+# supplement, plus analysis summaries and the truth-floor diagnostic).
+# Sandbox is non-persistent and may be cleaned; the v0.1.0 release-cut
+# PR swaps this for the production Zenodo DOI.
 datasets:
-  10.5072/zenodo.498960:
+  10.5072/zenodo.501725:
     contents:
       all_runs.parquet: outputs/all_runs.parquet
+      all_runs_cda_low.parquet: outputs/all_runs_cda_low.parquet
+      all_runs_cda_high.parquet: outputs/all_runs_cda_high.parquet
+      all_runs_maneuver_augment.parquet: outputs/all_runs_maneuver_augment.parquet
+      tles_cache_50m.parquet: outputs/tles_cache_50m.parquet
+      tles_cache_200m.parquet: outputs/tles_cache_200m.parquet
+      propagator_wins.json: outputs/propagator_wins.json
+      h3_regression.json: outputs/h3_regression.json
+      cda_sensitivity_summary.json: outputs/cda_sensitivity_summary.json
+      maneuver_threshold_summary.json: outputs/maneuver_threshold_summary.json
+      mixed_effects_results.csv: outputs/mixed_effects_results.csv
+      sweep_stats.txt: outputs/sweep_stats.txt
+      _truth_floor.parquet: outputs/_truth_floor.parquet
+      _truth_floor.json: outputs/_truth_floor.json
 
 # Per-script dependencies. Add entries as figures land.
 dependencies:
