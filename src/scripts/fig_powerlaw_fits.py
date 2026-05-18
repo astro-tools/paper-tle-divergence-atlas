@@ -182,14 +182,31 @@ def plot_powerlaw_fits(
     return point, cis, gens, pool_note
 
 
-def _format_ci(point_val: float, ci: tuple[float, float], precision: int = 2) -> str:
-    """Render ``value [lo, hi]`` for the LaTeX table. ``--`` if missing."""
+def _format_ci(
+    point_val: float,
+    ci: tuple[float, float],
+    precision: int = 2,
+    *,
+    fmt: str = "g",
+) -> str:
+    """Render ``value [lo, hi]`` for the LaTeX table. ``--`` if missing.
+
+    ``fmt="g"`` uses Python's significant-figures formatting (compact, but
+    strips trailing zeros — so an exact-CI bound like 1.30 renders as
+    ``1.3`` and a tight interval can collapse to ``1.3 [1.3, 1.3]``).
+    ``fmt="f"`` uses fixed decimals (``1.30 [1.26, 1.30]``), which the
+    ``k`` column needs to preserve CI-bound separation at the second
+    decimal.
+    """
     if not np.isfinite(point_val):
         return "--"
     lo, hi = ci
     if not (np.isfinite(lo) and np.isfinite(hi)):
-        return f"{point_val:.{precision}g}"
-    return f"{point_val:.{precision}g} [{lo:.{precision}g}, {hi:.{precision}g}]"
+        return f"{point_val:.{precision}{fmt}}"
+    return (
+        f"{point_val:.{precision}{fmt}} "
+        f"[{lo:.{precision}{fmt}}, {hi:.{precision}{fmt}}]"
+    )
 
 
 def _format_r_squared(point_val: float) -> str:
@@ -259,7 +276,9 @@ def write_table(
                 if prop == lower_a_prop:
                     a_cell = f"\\textbf{{{a_cell}}}"
                 cells.append(a_cell)
-                cells.append(_format_ci(k_val, cis.get(k_key, nan_pair)))
+                cells.append(
+                    _format_ci(k_val, cis.get(k_key, nan_pair), fmt="f")
+                )
                 cells.append(_format_r_squared(point.get(r2_key, float("nan"))))
                 cells.append(
                     f"{_format_p(point.get(p1_key, float('nan')))}"
