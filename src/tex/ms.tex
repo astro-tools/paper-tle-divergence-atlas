@@ -51,10 +51,10 @@ consistent with a mixture of mean-motion bias and constant unmodelled
 in-track acceleration; pooled L$_{2}$ medians grow from
 $\sim 1$~km at the $6$~h horizon (just beyond the operator's
 $\sim 4$-hour update interval) to $\sim 38$~km (SGP4) /
-$\sim 131$~km (high-fid) at $7$~d. Second, the high-fidelity
+$\sim 76$~km (high-fid) at $7$~d. Second, the high-fidelity
 propagator initialised from a public TLE does not improve over
 SGP4 at any of the four staleness horizons sampled; SGP4 wins on
-$\sim 65$--$80\%$ of pairs depending on horizon, a negative result
+$\sim 65$--$75\%$ of pairs depending on horizon, a negative result
 that decomposes into three mechanisms --- at-epoch operator-OD
 residual dominance, SGP4-vs-SGP4 truth-construction kernel
 alignment, and preferential spacecraft-property bias amplification
@@ -214,7 +214,7 @@ epoch using public TLEs alone.
 
 The practical consequence is a regime split. At long staleness
 ($\Delta t = 7$~days, where Section~\ref{sec:results} reports
-median observed errors of $40$--$130$~km) the OD-residual terms in
+median observed errors of $40$--$80$~km) the OD-residual terms in
 Eq.~\eqref{eq:error-budget} are at the percent level relative to
 the observed total (we quantify the floor at order $1$~km
 empirically below), and the propagator term dominates whether
@@ -636,13 +636,14 @@ coefficient file produced by parsing the NGA flat-text
 \texttt{.cof} format; truncation at degree $70$ reproduces the
 geopotential at LEO altitudes to sub-millimetre precision over
 multi-day arcs against the full $2160\!\times\!2160$ expansion
-\citep{pavlis2012}. Atmospheric drag uses GMAT's bundled
-NRLMSISE-00 implementation \citep{picone2002}, the SSA community
-standard for thermospheric density at LEO altitudes; it consumes its
-own internal space-weather inputs --- the F10.7 and Ap values
+\citep{pavlis2012}. Atmospheric drag uses GMAT's NRLMSISE-00
+implementation \citep{picone2002}, the SSA community standard for
+thermospheric density at LEO altitudes; the integrator reads CSSI-format
+F10.7 and Ap inputs from the project-local space-weather file described
+in Section~\ref{sec:methods-reproducibility}. The F10.7 and Ap values
 reported per output row in Section~\ref{sec:methods-metrics} are an
 independent analysis annotation joined onto each row at
-post-processing time and do not enter the integrator. The $8(9)$-order Runge--Kutta scheme
+post-processing time and play no role in the integration. The $8(9)$-order Runge--Kutta scheme
 with embedded error estimator \citep{verner1978} held the configured
 tolerance across the longest seven-day arcs in the corpus with no
 observed integration failures (manifest tally: 24{,}641
@@ -779,33 +780,12 @@ play no role in the integration itself, which reads its own
 space-weather inputs through GMAT's bundled NRLMSISE-00
 implementation (Section~\ref{sec:methods-forcemodel}).
 
-{\sloppy
-GMAT R2026a's NRLMSISE-00 driver reads its space-weather inputs
-from the bundled CSSI file SpaceWeather-v1.2.txt, which
-in the shipped release was last refreshed 2025-03-21. The corpus
-epochs (April~2026) fall ${\sim}13$ months past the file's
-observed-data horizon, well inside its monthly-predicted section,
-so the integrator sees a single Schatten-style monthly anchor for
-the entire window: 81-day-centred $F_{10.7} = 152.6$~sfu and
-monthly $\langle\!Ap\rangle = 16$ for April~2026. Over the same
-window the CelesTrak observed cache used for the per-row analysis
-annotation reports an 81-day-centred $F_{10.7}$ band of
-$123.9$--$126.5$~sfu (max divergence ${\sim}28$~sfu against the
-GMAT monthly anchor) and a daily $Ap$ band of $2$--$46$ (max
-divergence $30$~Ap-units against the monthly constant; cache mean
-$12.1$). The integrator's drag accelerations are therefore biased
-high by the monthly-prediction overestimate of solar activity --- a
-common-mode bias on the high-fidelity arm, since SGP4 does not see
-these inputs, and one that propagates into the $\Delta r_{hifi}$
-column of the per-run parquet. We flag this as a methodological
-limitation in the H3 discussion (Section~\ref{sec:discussion}) and
-note that a future re-run can either point GMAT at the live
-CelesTrak file or wait for the next R2026a SW-bundle refresh; the
-qualitative finding that the high-fidelity arm sits above SGP4 at
-every $\Delta t$ bucket is robust to this offset because both arms
-inherit the at-epoch operator OD residual that dominates the
-short-$\Delta t$ budget.
-\par}
+The CSSI space-weather inputs consumed by GMAT's NRLMSISE-00 driver
+are read from a project-local snapshot of CelesTrak's
+\texttt{sw19571001.txt} (Section~\ref{sec:methods-reproducibility}),
+so the hi-fid integrator sees the same daily-observed $F_{10.7}$ and
+$Ap$ values over the analysis window as the per-row annotation
+described above.
 
 \subsubsection{Statistical estimators}
 \label{sec:methods-statistics}
@@ -1015,13 +995,10 @@ fit by ordinary least squares per shell. The
 $A_{i}$ entering Eq.~\eqref{eq:h3-model} is the per-satellite
 SGP4 power-law coefficient recovered by the
 Section~\ref{sec:methods-statistics} fit restricted to a single
-satellite (and to the SGP4 arm: the operator-fitted $B^{\!\star}$
-is the quantity Eq.~\eqref{eq:h3-slope-altitude-only} concerns,
-whereas the high-fidelity arm additionally carries the
-GMAT-internal space-weather bias documented in
-Section~\ref{sec:methods-metrics}, and a parallel hi-fid
-regression is left to a follow-up that re-runs against the live
-CelesTrak file).
+satellite. The fit is restricted to the SGP4 arm because the
+operator-fitted $B^{\!\star}$ is the quantity
+Eq.~\eqref{eq:h3-slope-altitude-only} concerns; a parallel hi-fid
+regression on $A_{i,\mathrm{hifi}}$ is a natural follow-up.
 
 The naive alternative --- a per-shell pooled fit that drops the
 $\alpha_{\mathrm{gen}}$ term --- fails empirically at $550$ and
@@ -1136,20 +1113,6 @@ covariate. We report the 81-day fits for completeness and
 treat the daily-mean fit as the load-bearing H3 estimate on the
 present 30-day corpus.
 
-The GMAT-internal-vs-CelesTrak space-weather discrepancy
-documented in Section~\ref{sec:methods-metrics} does not bias
-either $\hat\beta$ above. H3 is fit on the SGP4 arm only, and
-SGP4 reads no external space-weather inputs --- the operator-fitted
-$B^{\!\star}$ encodes whatever density the operator's OD pipeline
-saw, which is upstream of any propagator we run downstream. The
-$\sim 28$~sfu monthly-anchor high-bias on GMAT's NRLMSISE-00
-input lives entirely on the high-fidelity arm of the comparison
-(Section~\ref{sec:methods-metrics}), and the per-sat $A$ this
-section regresses against is recovered from
-$\lVert\Delta\mathbf{r}_{\mathrm{SGP4}}\rVert$. A future hi-fid-arm
-H3 fit would inherit the reconciliation paragraph's caveats; the
-SGP4-arm fit reported here does not.
-
 Section~\ref{sec:discussion}
 returns to whether the absence of a clear $|\hat\beta_{540}|
 \gtrsim |\hat\beta_{560}|$ altitude-attenuation ordering reflects
@@ -1174,7 +1137,22 @@ re-rendering the PDF from a clean checkout does not require a local
 GMAT installation. Re-running the full sweep from scratch does
 require GMAT R2026a, the EGM2008 coefficient file installed through
 the project's installer script, and Space-Track credentials for the
-one-time TLE fetch. Exact versions of the load-bearing
+one-time TLE fetch.
+
+The CSSI-format space-weather text file consumed by GMAT's NRLMSISE-00
+driver is committed as a frozen snapshot of CelesTrak's
+\texttt{sw19571001.txt} in the repository under
+\texttt{src/static/\allowbreak SpaceWeather-\allowbreak All-\allowbreak v1.2.\allowbreak txt}; it is regeneratable
+from the CelesTrak source via \texttt{make fetch-gmat-sw}. The sweep
+driver supplies the snapshot's absolute path to GMAT through the
+\texttt{FM.Drag.\allowbreak CSSISpaceWeatherFile} script-level
+override, so the integrator reads observed daily $F_{10.7}$ and $Ap$
+values over the entire analysis window rather than the predicted
+inputs that GMAT R2026a's shipped CSSI file would supply for epochs
+past its observed-data horizon. The committed snapshot covers the
+April 2026 corpus window with daily observed data through 2026-05-16.
+
+Exact versions of the load-bearing
 astrodynamics dependencies --- SOFA / \texttt{erfa} for the
 TEME-to-MJ2000Eq rotation, the \texttt{sgp4} Python implementation
 of \citet{rhodes_sgp4} for the SGP4 evaluation, and \texttt{astropy}
@@ -1226,8 +1204,8 @@ We organise the reading of Section~\ref{sec:results} around the three
 hypotheses of Section~\ref{sec:introduction}. Pooled across the
 $24{,}641$ corpus pairs, the L$_{2}$ position error against the
 next-TLE proxy grows from a median of $0.94$~km (SGP4) /
-$1.52$~km (high-fid) at the $6$~h horizon to $11.7$ / $32.0$~km at
-$3$~d and $38.5$ / $130.9$~km at $7$~d. Section~\ref{sec:results-h1}
+$1.49$~km (high-fid) at the $6$~h horizon to $11.7$ / $24.5$~km at
+$3$~d and $38.5$ / $76.0$~km at $7$~d. Section~\ref{sec:results-h1}
 parametrises that growth into the staleness curves of H1;
 Section~\ref{sec:results-h2} contrasts the two propagators pair by
 pair (H2); Section~\ref{sec:results-error-structure} resolves the
@@ -1435,24 +1413,27 @@ Table~\ref{tab:propagator-wins}.
 \end{table}
 
 Pooled across all cells, the high-fidelity arm beats SGP4 on
-$31.4\%$~$[29.9,\,32.8]$ of $6$~h pairs in 3D L$_{2}$ norm, falling to
-$21.0\%$~$[20.0,\,21.9]$ at $1$~d, $20.6\%$~$[18.6,\,22.6]$ at $3$~d,
-and $18.6\%$~$[16.1,\,21.3]$ at $7$~d. The along-track variant
-sits within sampling error of the L$_{2}$ variant at every horizon
-except $6$~h, where it climbs to $34.7\%$~$[33.1,\,36.4]$: at the
-shortest horizon the cross-track and radial components of
-$\Delta\mathbf{r}$ are still appreciable contributions to the L$_{2}$
-norm (see Section~\ref{sec:results-error-structure} below), while at
-$\geq 1$~d the L$_{2}$ comparison is already an along-track comparison
-in disguise, and the two metrics return the same fraction within the
-bootstrap CI. Either way SGP4 wins on $\sim\!65$--$80\%$ of pairs
-across the corpus, which is the per-pair statement of the H2 negative
-finding.
+$33.7\%$~$[32.2,\,35.3]$ of $6$~h pairs in 3D L$_{2}$ norm,
+$25.1\%$~$[23.9,\,26.1]$ at $1$~d, $28.7\%$~$[26.6,\,30.9]$ at
+$3$~d, and $35.3\%$~$[31.9,\,38.8]$ at $7$~d. The non-monotone
+pooled trajectory --- worst at $1$~d, recovering toward the $6$~h
+fraction by $7$~d --- masks a strong per-cell pattern that
+Table~\ref{tab:propagator-wins} resolves below. The along-track
+variant sits within sampling error of the L$_{2}$ variant at every
+horizon except $6$~h, where it climbs to $36.0\%$~$[34.3,\,37.6]$:
+at the shortest horizon the cross-track and radial components of
+$\Delta\mathbf{r}$ are still appreciable contributions to the
+L$_{2}$ norm (see Section~\ref{sec:results-error-structure} below),
+while at $\geq 1$~d the L$_{2}$ comparison is already an
+along-track comparison in disguise, and the two metrics return the
+same fraction within the bootstrap CI. Either way SGP4 wins on
+$\sim\!65$--$75\%$ of pairs across the corpus, which is the
+per-pair statement of the H2 negative finding.
 
 The per-cell decomposition exposes a strong cohort dependence behind
 the pooled numbers. At $540$~km the high-fidelity-wins fraction
-collapses from $33.5\%$~$[31.2,\,35.7]$ at $6$~h to
-$1.7\%$~$[1.0,\,2.6]$ at $7$~d: as $\Delta t$ grows the high-fidelity
+collapses from $34.6\%$~$[32.3,\,36.8]$ at $6$~h to
+$5.4\%$~$[3.9,\,7.0]$ at $7$~d: as $\Delta t$ grows the high-fidelity
 arm at the lowest shell saturates against a propagation floor
 visible in Figure~\ref{fig:propagator-scatter} as the
 ``$|\Delta\mathbf{r}_{\mathrm{hifi}}|$ horizontal band'' centred near
@@ -1463,18 +1444,17 @@ high-fidelity arm (drag mismodelling on the lowest-altitude cohort)
 and a wider operator-OD-residual distribution on SGP4 -- the
 combination yields a stripe of paired points whose ordinate is
 nearly $\Delta t$-determined and whose abscissa varies. At $550$~km
-the high-fidelity-wins fraction is qualitatively different: it stays
-between $24$ and $36\%$ across all four staleness horizons, with
-$35.9\%$~$[31.3,\,41.0]$ at $7$~d carried predominantly by the
+the high-fidelity-wins fraction is qualitatively different: it climbs
+with $\Delta t$ from $39.8\%$~$[37.0,\,42.6]$ at $6$~h to
+$60.2\%$~$[55.9,\,64.4]$ at $7$~d, carried predominantly by the
 v2-mini cohort whose larger ballistic-coefficient scale lifts the
-SGP4 floor enough to admit a competitive high-fidelity arm. This
-is the only cell of the corpus where the high-fidelity wins
-fraction at $7$~d sits well above the $\sim 10\%$ baseline of the
-pooled long-$\Delta t$ behaviour and is visible in
+SGP4 floor enough for the high-fidelity arm to overtake. This is
+the one cell of the corpus where the high-fidelity arm beats SGP4
+on a majority of pairs at $7$~d, visible in
 Figure~\ref{fig:propagator-scatter} as a clear v2-mini-dominated
 plume reaching below the diagonal. At $560$~km the comparable
 v2-mini wedge is weaker -- the cell's $7$~d high-fidelity-wins
-fraction is $10.0\%$~$[7.6,\,12.5]$ -- but the cohort sign is
+fraction is $26.7\%$~$[22.1,\,31.6]$ -- but the cohort sign is
 consistent with the $550$~km result.
 
 H2 therefore holds with the reading: the high-fidelity propagator
@@ -1499,8 +1479,8 @@ along-track median sits a clean two decades above the cross-track
 and radial medians at every $\Delta t$ bucket and in every populated
 cohort, and the gap widens with $\Delta t$. On the v1.x cohort,
 along-track grows roughly $1 \to 4 \to 6 \to 16$~km from $6$~h to
-$7$~d on the SGP4 arm; the v2-mini cohort grows $1 \to 4 \to 22 \to
-96$~km on the same arm and reaches $\sim 100$~km at $7$~d on the
+$7$~d on the SGP4 arm; the v2-mini cohort grows $1 \to 4 \to 24 \to
+98$~km on the same arm and reaches $\sim 76$~km at $7$~d on the
 high-fidelity arm. Over the same horizons the cross-track and
 radial medians grow from $\mathcal{O}(0.03$--$0.1)$~km at $6$~h to
 $\mathcal{O}(0.3$--$1)$~km at $7$~d, two decades below the
@@ -1535,7 +1515,7 @@ $\sim 0.13$~s of orbital phase, marked on the secondary axis of the
 along-track panel. The $6$~h headline median of $\sim 1$~km from
 Section~\ref{sec:results-h1} is therefore a sub-orbit-second timing
 miss along the velocity direction, while the $7$~d high-fidelity
-median of $\sim 130$~km corresponds to $\sim 17$~s of phase.
+median of $\sim 76$~km corresponds to $\sim 10$~s of phase.
 Cross-track and radial components -- bounded under the dominant LEO
 perturbations by orbital-period oscillation and second-order coupling
 \citep[\S\,3.4]{vallado2013} -- accumulate freely over neither
@@ -1671,7 +1651,7 @@ from zero only at one of them.
 The empirical headline of Section~\ref{sec:results} --- that the
 high-fidelity propagator initialised from a public TLE is behind
 SGP4 against the next-TLE proxy at every $\Delta t$ bucket of the
-corpus, losing on $65$--$80\%$ of pairs depending on horizon
+corpus, losing on $65$--$75\%$ of pairs depending on horizon
 (Table~\ref{tab:propagator-wins}) --- supports a more specific
 reading than ``high-fidelity propagation is wasted''. The
 load-bearing statement is the conditional one: \emph{higher
@@ -1738,7 +1718,7 @@ $\lVert\Delta\mathbf{r}_{\mathrm{SGP4}}\rVert -
 even when they dominate each absolute norm. The floor inflates the
 $x$- and $y$-axes of Figure~\ref{fig:propagator-scatter} together
 but does not bias the win count, and the empirical
-$31.4\%$~$[29.9,\,32.8]$ hi-fid-wins fraction at $6$~h
+$33.7\%$~$[32.2,\,35.3]$ hi-fid-wins fraction at $6$~h
 (Table~\ref{tab:propagator-wins}) is the genuine
 SGP4-vs-high-fidelity skill differential on the floor-saturated
 horizon. The question that mechanism~1 \emph{does not} answer is
@@ -1789,10 +1769,12 @@ dominates at the long-$\Delta t$ end of the corpus, where
 mechanism~1 has receded to percent-level and the integrated drag
 modelling error overwhelms the mechanism-2 kernel offset. At
 $\Delta t = 7$~d the pooled high-fidelity L$_{2}$ median sits at
-$\sim 131$~km against the SGP4 median of $\sim 38$~km
-(Section~\ref{sec:results-h1}), and the corresponding hi-fid-wins
-fraction has fallen to $18.6\%$~$[16.1,\,21.3]$
-(Table~\ref{tab:propagator-wins}). The asymmetry is mechanical: a
+$\sim 76$~km against the SGP4 median of $\sim 38$~km
+(Section~\ref{sec:results-h1}), and the corresponding pooled
+hi-fid-wins fraction is $35.3\%$~$[31.9,\,38.8]$
+(Table~\ref{tab:propagator-wins}) --- still below the $50\%$ null
+in the bulk of the corpus, even after the long-$\Delta t$ recovery
+visible in the pooled trajectory. The asymmetry is mechanical: a
 systematic $C_{D} \cdot A$ bias feeds directly into the
 high-fidelity drag acceleration through the $\rho\,C_{D}\,A$
 product, whereas SGP4 absorbs the equivalent bias into the
@@ -1826,7 +1808,7 @@ kernel-alignment advantage of the analytic-on-analytic truth
 construction; mechanism~3 carries the $3$--$7$~d horizons through
 the integrated drag-acceleration error. The per-cell win
 fractions of Table~\ref{tab:propagator-wins} match this
-partition, including the $35.9\%$~$[31.3,\,41.0]$ hi-fid-wins
+partition, including the $60.2\%$~$[55.9,\,64.4]$ hi-fid-wins
 fraction at $550$~km~$\times$~$7$~d --- the cohort where SGP4's
 own fit fails most visibly (super-linear $\hat k = 1.44$ on
 v2-mini, Table~\ref{tab:powerlaw}) and where mechanism~2's
@@ -1877,8 +1859,8 @@ of the per-pair win-fraction
 $\lvert\Delta r_{\mathrm{along},\,\mathrm{hifi}}\rvert <
 \lvert\Delta r_{\mathrm{along},\,\mathrm{SGP4}}\rvert$
 (Table~\ref{tab:propagator-wins}) moves the $6$~h hi-fid-wins
-fraction from $31.4\%$ to $34.7\%$ but is essentially unchanged
-at $1$~d ($21.0\%$), $3$~d ($20.5\%$), and $7$~d ($18.6\%$);
+fraction from $33.7\%$ to $36.0\%$ but is essentially unchanged
+at $1$~d ($25.0\%$), $3$~d ($28.7\%$), and $7$~d ($35.2\%$);
 the L$_{2}$ comparison is already an along-track comparison once
 the orbital geometry pushes the radial and cross-track
 contributions two decades below. The H2 negative result is
@@ -1909,11 +1891,12 @@ per-generation drag- and SRP-area estimates of
 Section~\ref{sec:methods-spacecraft-props} does not improve median
 3D position error over SGP4 at any of the four staleness horizons
 sampled by this corpus. The pooled hi-fid-wins fraction sits at
-$31.4\%$~$[29.9,\,32.8]$ at $\Delta t = 6$~h and falls to
-$18.6\%$~$[16.1,\,21.3]$ at $7$~d
+$33.7\%$~$[32.2,\,35.3]$ at $\Delta t = 6$~h, dips to
+$25.1\%$~$[23.9,\,26.1]$ at $1$~d, and recovers to
+$35.3\%$~$[31.9,\,38.8]$ at $7$~d
 (Table~\ref{tab:propagator-wins}); the median high-fidelity error
-exceeds the SGP4 median by factors of $1.6$, $2.3$, $2.7$, and
-$3.4$ at the four buckets (Section~\ref{sec:results-h1}). The
+exceeds the SGP4 median by factors of roughly $1.6$, $2.0$, $2.1$,
+and $2.0$ at the four buckets (Section~\ref{sec:results-h1}). The
 qualitative pattern is robust to $\pm 20\%$ $C_{D} \cdot A$
 uncertainty on the v2-mini cohort
 (Appendix~\ref{app:cda-sensitivity}), to $\pm 50$~m perturbations
@@ -1940,10 +1923,10 @@ factor approaching $3.4$, mechanism~3 dominates the differential,
 and the improvement window for a public-data consumer is closed
 unless the initial state itself improves.
 
-The one cell of the corpus where high-fidelity propagation is
-empirically competitive is the v2-mini cohort at
+The one cell of the corpus where high-fidelity propagation
+overtakes SGP4 on a majority of pairs is the v2-mini cohort at
 $\Delta t = 7$~d on the $550$~km shell, with a hi-fid-wins
-fraction of $35.9\%$~$[31.3,\,41.0]$
+fraction of $60.2\%$~$[55.9,\,64.4]$
 (Table~\ref{tab:propagator-wins}). The cell is the regime where
 the SGP4 arm itself struggles most, carrying a super-linear
 $\hat k \approx 1.44$ on a cohort whose operator-fitted
@@ -2126,7 +2109,7 @@ under both propagators (H1, Table~\ref{tab:powerlaw}); the
 high-fidelity propagator initialised from a public TLE does
 \emph{not} improve median position error over SGP4 at any of the
 four staleness horizons sampled by this corpus, losing on
-$\sim 65$--$80\%$ of pairs depending on $\Delta t$ (H2,
+$\sim 65$--$75\%$ of pairs depending on $\Delta t$ (H2,
 Table~\ref{tab:propagator-wins}); and solar-activity modulation of
 the per-satellite SGP4 staleness coefficient $A$ is direction-
 consistent with the
