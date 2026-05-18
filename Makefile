@@ -1,4 +1,4 @@
-.PHONY: help env fetch-tles fetch-satcat fetch-sw fetch-gmat-sw install-egm2008 build-corpus build-maneuver-jumps build-rejection-counts build-sensitivity-subset build smoke sweep aggregate sweep-stats diagnostics cda-sensitivity cda-sensitivity-table maneuver-threshold-sensitivity maneuver-threshold-table h3-regression propagator-wins figures bundle clean
+.PHONY: help env fetch-tles fetch-satcat fetch-sw fetch-gmat-sw install-egm2008 build-corpus build-maneuver-jumps build-rejection-counts build-sensitivity-subset build smoke sweep aggregate sweep-stats diagnostics cda-sensitivity cda-sensitivity-table maneuver-threshold-sensitivity maneuver-threshold-table h3-regression propagator-wins figures bundle arxiv-tarball clean
 
 help:
 	@echo "Targets:"
@@ -65,6 +65,10 @@ help:
 	@echo "  bundle       -- zip the canonical Zenodo deposit bundle to bundle.zip"
 	@echo "                  (aggregated sweep outputs + manifest + mission script +"
 	@echo "                  EGM2008 installer; flat layout)."
+	@echo "  arxiv-tarball -- run 'showyourwork tarball' and post-process the result"
+	@echo "                   through sweep.strip_arxiv_tarball to drop dotfiles and"
+	@echo "                   the showyourwork v0.4.3 root-level figure/table dupes."
+	@echo "                   Output: arxiv.tar.gz at the repo root."
 	@echo "  clean        -- remove generated artifacts (PDF, figures, snakemake state)"
 	@echo ""
 	@echo "After 'make env', activate with: conda activate paper-tle-divergence-atlas"
@@ -222,6 +226,10 @@ figures:
 
 bundle:
 	python -m sweep.bundle
+
+arxiv-tarball:
+	showyourwork tarball
+	python -m sweep.strip_arxiv_tarball --src arxiv.tar.gz
 
 clean:
 	rm -rf .snakemake .showyourwork src/tex/figures ms.pdf
