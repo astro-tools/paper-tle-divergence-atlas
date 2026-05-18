@@ -6,7 +6,7 @@
 > *How long can you trust a Starlink TLE? An empirical comparison of SGP4 and high-fidelity propagation against operator-updated truth across a megaconstellation.*
 
 Author: Dimitrije Jankovic (Independent researcher — astro-tools)
-Status: **In progress** (pre-deposit draft)
+Status: **v0.1.0** — [release notes](https://github.com/astro-tools/paper-tle-divergence-atlas/releases/tag/v0.1.0)
 
 ## What this repository is
 
