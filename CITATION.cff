@@ -1,0 +1,25 @@
+# Machine-readable citation for GitHub's "Cite this repository" button.
+# DOI / version / release date are placeholders until the v0.1.0
+# release-cut PR (#8) mints the Zenodo concept DOI and tags the release.
+cff-version: 1.2.0
+message: "If you use this work, please cite it using the metadata below."
+title: "How long can you trust a Starlink TLE? An empirical comparison of SGP4 and high-fidelity propagation against operator-updated truth across a megaconstellation"
+authors:
+  - family-names: Jankovic
+    given-names: Dimitrije
+    affiliation: "Independent researcher — astro-tools"
+type: software
+license: MIT
+repository-code: "https://github.com/astro-tools/paper-tle-divergence-atlas"
+keywords:
+  - astrodynamics
+  - orbital-mechanics
+  - tle
+  - sgp4
+  - gmat
+  - starlink
+  - megaconstellation
+  - space-situational-awareness
+date-released: "TBD"
+version: "TBD"
+doi: "TBD"
