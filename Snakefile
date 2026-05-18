@@ -49,10 +49,12 @@ rule tab_propagator_wins:
     output:
         json="outputs/propagator_wins.json",
         table="src/tex/tables/tab_propagator_wins.tex",
+        by_gen_table="src/tex/tables/tab_propagator_wins_by_gen.tex",
     conda:
         "environment.yml"
     shell:
         "python {input.script} "
         "--all-runs {input.all_runs} "
         "--json-out {output.json} "
-        "--table-out {output.table}"
+        "--table-out {output.table} "
+        "--by-gen-table-out {output.by_gen_table}"

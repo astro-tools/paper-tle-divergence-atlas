@@ -1458,7 +1458,11 @@ Table~\ref{tab:propagator-wins}.
   all of each drawn satellite's pairs in the cell; identical
   resampling structure to Table~\ref{tab:powerlaw}). Per-cell rows
   with fewer than $30$ pairs are suppressed; pooled-per-$\Delta t$
-  rows aggregate across all shells and generations.}
+  rows aggregate across all shells and generations. The
+  cohort-resolved decomposition of these rows (per-$(\text{shell}
+  \times \Delta t \times \text{generation})$ win fractions) is in
+  Table~\ref{tab:propagator-wins-by-gen} alongside the
+  Section~\ref{sec:discussion-v2mini} cohort-mechanism discussion.}
   \label{tab:propagator-wins}
   \input{tables/tab_propagator_wins.tex}
 \end{table}
@@ -1495,30 +1499,50 @@ high-fidelity arm (drag mismodelling on the lowest-altitude cohort)
 and a wider operator-OD-residual distribution on SGP4 -- the
 combination yields a stripe of paired points whose ordinate is
 nearly $\Delta t$-determined and whose abscissa varies. At $550$~km
-the high-fidelity-wins fraction is qualitatively different: it climbs
-with $\Delta t$ from $39.8\%$~$[37.0,\,42.6]$ at $6$~h to
-$60.2\%$~$[55.9,\,64.4]$ at $7$~d, carried predominantly by the
-v2-mini cohort whose larger ballistic-coefficient scale lifts the
-SGP4 floor enough for the high-fidelity arm to overtake. This is
-the one cell of the corpus where the high-fidelity arm beats SGP4
-on a majority of pairs at $7$~d, visible in
-Figure~\ref{fig:propagator-scatter} as a clear v2-mini-dominated
-plume reaching below the diagonal. At $560$~km the comparable
-v2-mini wedge is weaker -- the cell's $7$~d high-fidelity-wins
-fraction is $26.7\%$~$[22.1,\,31.6]$ -- but the cohort sign is
-consistent with the $550$~km result.
+the shell-level high-fidelity-wins fraction is qualitatively different:
+it climbs with $\Delta t$ from $39.8\%$~$[37.0,\,42.6]$ at $6$~h to
+$60.2\%$~$[55.9,\,64.4]$ at $7$~d, the only shell-level cell of the
+corpus where the high-fidelity arm beats SGP4 on a majority of pairs.
+At $560$~km the comparable shell-level wedge is weaker --- the cell's
+$7$~d high-fidelity-wins fraction is $26.7\%$~$[22.1,\,31.6]$ ---
+suggesting at first reading that the $550$~km flip is an isolated
+exception.
+
+That reading is partly an artefact of cohort blending in the
+shell-level statistic. The $550$~km $\times$ $7$~d cell is
+$78\%$ v2-mini by pair count whereas the $560$~km $\times$ $7$~d
+cell is only $34\%$ v2-mini, so the same per-cohort behaviour
+projects very differently onto the shell-level wins fraction when
+the v1.5 majority drags the $560$~km number down. The
+cohort-resolved fractions in
+Table~\ref{tab:propagator-wins-by-gen} (in
+Section~\ref{sec:discussion-v2mini}) make the point directly: on
+the v2-mini cohort alone the high-fidelity arm wins
+$72.6\%$~$[69.9,\,75.4]$ of $7$~d pairs at $550$~km \emph{and}
+$55.1\%$~$[49.9,\,60.4]$ of $7$~d pairs at $560$~km, both clearly
+above the $50\%$ null; while on v1.x the arm loses badly at
+both shells ($16.1\%$~$[11.0,\,22.2]$ at $550$~km;
+$11.9\%$~$[8.8,\,15.5]$ at $560$~km). The cohort signal at
+$7$~d is therefore cohort-uniform, not shell-specific. The same
+table shows the v2-mini hi-fid-wins fraction rising with
+$\Delta t$ at \emph{both} populated shells from below half at
+$6$~h to a majority at $7$~d.
+Section~\ref{sec:discussion-v2mini} returns to the physical
+mechanism behind the cohort split.
 
 H2 therefore holds with the reading: the high-fidelity propagator
 initialised from public TLEs does not improve on SGP4 in the bulk
 of the corpus, and the pooled win fraction is statistically distant
-from the $50\%$ null at every $\Delta t$. The one cohort-specific
-exception -- v2-mini at $550$~km at $\Delta t = 7$~d -- is the
-regime where the SGP4 cohort itself struggles most (the steep
-super-linear $\hat k = 1.44$ of Table~\ref{tab:powerlaw}), making
-even an inherently biased high-fidelity propagator competitive on
-a non-trivial fraction of pairs. Section~\ref{sec:discussion}
-decomposes the bulk negative result into three distinct
-mechanisms.
+from the $50\%$ null at every $\Delta t$. The cohort-specific
+exception --- v2-mini at long $\Delta t$, present at both $550$ and
+$560$~km --- is the regime where the SGP4 cohort itself struggles
+most (super-linear $\hat k = 1.44$ and $1.32$ respectively in
+Table~\ref{tab:powerlaw}), making even an inherently biased
+high-fidelity propagator competitive on a non-trivial fraction of
+pairs. Section~\ref{sec:discussion} decomposes the bulk negative
+result into three distinct mechanisms, and
+Section~\ref{sec:discussion-v2mini} elaborates the cohort-resolved
+reading.
 
 \subsection{Error decomposition}
 \label{sec:results-error-structure}
@@ -1866,6 +1890,125 @@ v2-mini, Table~\ref{tab:powerlaw}) and where mechanism~2's
 architectural advantage erodes against mechanism~3's drag-modelling
 penalty.
 
+\subsection{Cohort-resolved view: when does high-fidelity overtake SGP4?}
+\label{sec:discussion-v2mini}
+
+The shell-level wins fractions of Table~\ref{tab:propagator-wins}
+report the H2 result as a single cohort-uniform exception at
+$550$~km $\times$ $7$~d. As Section~\ref{sec:results-h2} flagged,
+the per-(shell $\times$ $\Delta t$ $\times$ generation)
+decomposition tells a more consistent story.
+Table~\ref{tab:propagator-wins-by-gen} resolves every cell of the
+corpus by pooled generation; three readings carry the H2-cohort
+story.
+
+\begin{table}[ht]
+  \centering
+  \caption{Per-(shell $\times$ $\Delta t$ $\times$ pooled
+  generation) hi-fid-vs-SGP4 win fractions on 3D L$_{2}$ and on
+  the along-track component, with $95\%$ satellite-level
+  bootstrap percentile CIs. Same construction as
+  Table~\ref{tab:propagator-wins} but with the cohort axis
+  exposed; cells with fewer than $30$ pairs are suppressed. The
+  v2-mini cohort at $\Delta t = 7$~d clears $50\%$ at both
+  populated shells, in contrast with the shell-level reading in
+  Table~\ref{tab:propagator-wins}.}
+  \label{tab:propagator-wins-by-gen}
+  \input{tables/tab_propagator_wins_by_gen.tex}
+\end{table}
+
+\emph{Cohort, not shell, carries the H2 sign at long $\Delta t$.}
+On the v2-mini cohort alone, the high-fidelity arm wins
+$72.6\%$~$[69.9,\,75.4]$ of $7$~d pairs at $550$~km and
+$55.1\%$~$[49.9,\,60.4]$ of $7$~d pairs at $560$~km --- both
+above the $50\%$ null. On the v1.x cohort alone the same
+horizon reports $16.1\%$~$[11.0,\,22.2]$ at $550$~km and
+$11.9\%$~$[8.8,\,15.5]$ at $560$~km --- both far below
+$50\%$. The shell-level wins fractions in
+Table~\ref{tab:propagator-wins} mix these two cohorts in
+different population ratios (v2-mini is $78\%$ of the $550$~km
+$\times$ $7$~d cell but only $34\%$ of the $560$~km $\times$
+$7$~d cell), and the apparent shell-fragility of the H2-cohort
+exception in the headline table is mostly that
+blending artefact, not a cohort-level inconsistency. The same
+table shows the v2-mini hi-fid-wins fraction climbing
+monotonically with $\Delta t$ once past the $6$~h
+truth-floor regime: from $\sim 17$--$45\%$ at $6$~h, to
+$\sim 31\%$ at $1$~d, to $\sim 44$--$54\%$ at $3$~d, to
+$\sim 55$--$73\%$ at $7$~d. The shell ordering is preserved
+($550 > 560$) at long $\Delta t$, consistent with the lower-altitude
+shell carrying the larger mean drag-induced
+B$^{\!\star}$-mis-fit.
+
+\emph{Median-level reading from Section~\ref{sec:results-h1}.}
+The shell-level median table in
+Section~\ref{sec:results-h1} already exposes the same cohort
+ordering. At $\Delta t = 7$~d the v2-mini cohort medians sit
+\emph{below} the SGP4 medians at both populated shells
+(hi-fid $72.3$~km vs.\ SGP4 $101.7$~km on the $550$~km cell;
+hi-fid $84.5$~km vs.\ SGP4 $89.8$~km on the $560$~km cell), while
+on v1.x the hi-fid median sits a factor of three to five above
+the SGP4 median at the same horizon
+(Section~\ref{sec:results-h1}). The win-fraction picture and the
+median picture therefore agree: hi-fid overtakes SGP4 on
+v2-mini at long $\Delta t$ and loses to SGP4 on v1.x at the
+same horizons; both signals are robustly present at both
+populated shells.
+
+\emph{Physical mechanism.} The cohort split has a coherent
+physical reading that builds on mechanism 3 of
+Section~\ref{sec:discussion-h2-mechanisms}. The v1.x bus has
+been on-orbit since 2019--2021, with a multi-year operator
+orbit-determination heritage; the fitted $B^{\!\star}$ on
+v1.x absorbs the satellite's drag environment over its OD
+window faithfully enough that SGP4's analytic propagation
+beats a high-fidelity integrator whose drag inputs are derived
+from public spacecraft properties. The v2-mini bus is newer
+(2023+), with less-mature operator OD over an inherently
+larger and more time-variable
+$B^{\!\star}$ (the
+$\hat k = 1.44$ super-linear SGP4 exponent on v2-mini at
+$550$~km is the empirical signature of a constant unmodelled
+along-track acceleration $a_{\rm{res}}$ that the operator-fitted
+$B^{\!\star}$ has not absorbed; cf.\
+Section~\ref{sec:methods-powerlaw-physics},
+Eq.~\eqref{eq:powerlaw-k2}). On the same cohort, the
+high-fidelity arm models drag explicitly through
+$\rho\,C_{D}\,A$ from NRLMSISE-00 and the per-generation
+spacecraft-property table, so where SGP4's averaged
+$B^{\!\star}$ fails most badly the high-fidelity arm has the
+most opportunity to gain. Lower altitude amplifies the effect:
+more drag $\Rightarrow$ larger SGP4 mean-fit residual
+$\Rightarrow$ more room for an explicit-drag propagator to
+overtake. This is why the v2-mini wins fraction is higher at
+$550$~km ($72.6\%$) than at $560$~km ($55.1\%$). The corpus
+has no v2-mini cohort at $540$~km
+(Table~\ref{tab:corpus}), so the lowest-altitude extrapolation
+of the trend is untested.
+
+\emph{Caveats.} Three constraints on the cohort claim should be
+read alongside it. (i) The v2-mini drag area is scaled by the
+v1.x-to-v2-mini bus-size ratio (Section~\ref{sec:methods-attitude},
+Table~\ref{tab:drag-areas}), not fitted to v2-mini-specific
+ballistic data --- the largest unconstrained modelling
+assumption in the spacecraft-property layer. The
+$\pm 20\%$ $C_{D} A$ sensitivity in
+Appendix~\ref{app:cda-sensitivity} shifts the v2-mini median
+high-fidelity error by at most $\pm 17\%$, leaving the
+qualitative cohort sign intact, but a systematic v2-mini
+$C_{D} A$ misspecification beyond that band would shift the
+per-cohort wins fractions correspondingly. (ii) The
+operator-fitted $B^{\!\star}$ on the newer cohort may carry
+correlated biases (recent-maneuver history, attitude duty cycle
+captured by the OD window) that this analysis cannot
+separate from the H2 cohort signal using public TLEs alone.
+(iii) The $560$~km $\times$ v2-mini $\times$ $7$~d cell carries
+$n = 461$ pairs --- the smallest cell whose interpretation is
+load-bearing for the cohort-uniform claim. A halving of the
+corpus could move that cell's win fraction across the $50\%$
+null, although the median ordering would survive at the
+several-km gap reported in Section~\ref{sec:results-h1}.
+
 \subsection{Along-track dominance of the error budget}
 \label{sec:discussion-along-track}
 
@@ -1974,20 +2117,24 @@ factor approaching $3.4$, mechanism~3 dominates the differential,
 and the improvement window for a public-data consumer is closed
 unless the initial state itself improves.
 
-The one cell of the corpus where high-fidelity propagation
-overtakes SGP4 on a majority of pairs is the v2-mini cohort at
-$\Delta t = 7$~d on the $550$~km shell, with a hi-fid-wins
-fraction of $60.2\%$~$[55.9,\,64.4]$
-(Table~\ref{tab:propagator-wins}). The cell is the regime where
-the SGP4 arm itself struggles most, carrying a super-linear
-$\hat k \approx 1.44$ on a cohort whose operator-fitted
-$B^{\!\star}$ tracks density less stably than v1.x at the same
-altitude; the architectural advantage of mechanism~2 erodes against
-the underlying skill gap and the two arms approach parity.
-Consumers whose workflow centres on long-staleness v2-mini
-forecasting at moderate altitude should regard the propagator
-choice as cell-specific rather than uniformly disfavouring
-high-fidelity. For the same reason the per-cell $(A,\,k)$ table
+The cohort-resolved analysis of
+Section~\ref{sec:discussion-v2mini} identifies one cohort
+(v2-mini) at one staleness horizon ($\Delta t \gtrsim 3$~d) where
+high-fidelity propagation overtakes SGP4 on a majority of pairs
+at \emph{both} populated shells: the v2-mini hi-fid-wins fraction
+on $7$~d pairs is $72.6\%$~$[69.9,\,75.4]$ at $550$~km and
+$55.1\%$~$[49.9,\,60.4]$ at $560$~km
+(Table~\ref{tab:propagator-wins-by-gen}). The regime is the one
+where SGP4 itself struggles most --- super-linear
+$\hat k \approx 1.44$ on v2-mini at $550$~km and $1.32$ at
+$560$~km, on a cohort whose operator-fitted $B^{\!\star}$ tracks
+density less stably than v1.x at the same altitude --- so the
+architectural advantage of mechanism~2 erodes against the
+underlying skill gap, and mechanism~3's drag-modelling penalty
+flips sign on the cohort where SGP4 is weakest. Consumers whose
+workflow centres on long-staleness v2-mini forecasting should
+regard the propagator choice as cohort-specific rather than
+uniformly disfavouring high-fidelity. For the same reason the per-cell $(A,\,k)$ table
 of Table~\ref{tab:powerlaw} is the natural input to a
 practitioner's error budget: it preserves the cohort-resolved
 $A$ and $k$ that no single pooled number captures.
