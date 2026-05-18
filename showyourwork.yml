@@ -20,23 +20,28 @@ require_inputs: true
 # supplement, plus analysis summaries and the truth-floor diagnostic).
 # Sandbox is non-persistent and may be cleaned; the v0.1.0 release-cut
 # PR swaps this for the production Zenodo DOI.
+#
+# The single deposit artefact is bundle.zip; per showyourwork's
+# zip-deposit syntax, each archive entry is addressed as
+# `<archive-name>/<entry-name>`. showyourwork downloads the archive
+# once and extracts the named entries to their target paths.
 datasets:
   10.5072/zenodo.501725:
     contents:
-      all_runs.parquet: outputs/all_runs.parquet
-      all_runs_cda_low.parquet: outputs/all_runs_cda_low.parquet
-      all_runs_cda_high.parquet: outputs/all_runs_cda_high.parquet
-      all_runs_maneuver_augment.parquet: outputs/all_runs_maneuver_augment.parquet
-      tles_cache_50m.parquet: outputs/tles_cache_50m.parquet
-      tles_cache_200m.parquet: outputs/tles_cache_200m.parquet
-      propagator_wins.json: outputs/propagator_wins.json
-      h3_regression.json: outputs/h3_regression.json
-      cda_sensitivity_summary.json: outputs/cda_sensitivity_summary.json
-      maneuver_threshold_summary.json: outputs/maneuver_threshold_summary.json
-      mixed_effects_results.csv: outputs/mixed_effects_results.csv
-      sweep_stats.txt: outputs/sweep_stats.txt
-      _truth_floor.parquet: outputs/_truth_floor.parquet
-      _truth_floor.json: outputs/_truth_floor.json
+      bundle.zip/all_runs.parquet: outputs/all_runs.parquet
+      bundle.zip/all_runs_cda_low.parquet: outputs/all_runs_cda_low.parquet
+      bundle.zip/all_runs_cda_high.parquet: outputs/all_runs_cda_high.parquet
+      bundle.zip/all_runs_maneuver_augment.parquet: outputs/all_runs_maneuver_augment.parquet
+      bundle.zip/tles_cache_50m.parquet: outputs/tles_cache_50m.parquet
+      bundle.zip/tles_cache_200m.parquet: outputs/tles_cache_200m.parquet
+      bundle.zip/propagator_wins.json: outputs/propagator_wins.json
+      bundle.zip/h3_regression.json: outputs/h3_regression.json
+      bundle.zip/cda_sensitivity_summary.json: outputs/cda_sensitivity_summary.json
+      bundle.zip/maneuver_threshold_summary.json: outputs/maneuver_threshold_summary.json
+      bundle.zip/mixed_effects_results.csv: outputs/mixed_effects_results.csv
+      bundle.zip/sweep_stats.txt: outputs/sweep_stats.txt
+      bundle.zip/_truth_floor.parquet: outputs/_truth_floor.parquet
+      bundle.zip/_truth_floor.json: outputs/_truth_floor.json
 
 # Per-script dependencies. Add entries as figures land.
 dependencies:
