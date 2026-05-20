@@ -3,6 +3,7 @@
 [![build](https://github.com/astro-tools/paper-tle-divergence-atlas/actions/workflows/build.yml/badge.svg)](https://github.com/astro-tools/paper-tle-divergence-atlas/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20277028.svg)](https://doi.org/10.5281/zenodo.20277028)
+[![arXiv](https://img.shields.io/badge/arXiv-2605.19850-b31b1b.svg)](https://arxiv.org/abs/2605.19850)
 
 > *How long can you trust a Starlink TLE? An empirical comparison of SGP4 and high-fidelity propagation against operator-updated truth across a megaconstellation.*
 
@@ -72,17 +73,34 @@ scratch (different corpus, or just a clean slate), delete
 
 ## Citation
 
+To cite the paper, use the arXiv preprint:
+
+```bibtex
+@article{jankovic_tle_divergence_atlas_2026,
+  author        = {Jankovic, Dimitrije},
+  title         = {How long can you trust a Starlink TLE? An empirical comparison of SGP4 and high-fidelity propagation against operator-updated truth across a megaconstellation},
+  year          = {2026},
+  eprint        = {2605.19850},
+  archivePrefix = {arXiv},
+  primaryClass  = {astro-ph.EP},
+  doi           = {10.48550/arXiv.2605.19850},
+  url           = {https://arxiv.org/abs/2605.19850}
+}
+```
+
+To cite the sweep outputs and source code specifically, use the Zenodo deposit:
+
 ```bibtex
 @misc{jankovic_tle_divergence_atlas,
   author = {Jankovic, Dimitrije},
-  title = {How long can you trust a Starlink TLE? An empirical comparison of SGP4 and high-fidelity propagation against operator-updated truth across a megaconstellation},
+  title = {How long can you trust a Starlink TLE? --- sweep outputs and source code},
   year = {2026},
   doi = {10.5281/zenodo.20277028},
   url = {https://doi.org/10.5281/zenodo.20277028}
 }
 ```
 
-The DOI above is the Zenodo concept DOI and resolves to the latest version. The `CITATION.cff` machine-readable equivalent powers GitHub's "Cite this repository" button.
+The Zenodo DOI is the concept DOI and resolves to the latest version. The `CITATION.cff` machine-readable metadata powers GitHub's "Cite this repository" button and names the arXiv paper as the preferred citation.
 
 ## Methodology — quick reference
 

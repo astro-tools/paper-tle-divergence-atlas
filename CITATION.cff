@@ -1,6 +1,7 @@
 # Machine-readable citation for GitHub's "Cite this repository" button.
-# DOI / version / release date are placeholders until the v0.1.0
-# release-cut PR (#8) mints the Zenodo concept DOI and tags the release.
+# The top-level metadata describes the software / data release archived
+# on Zenodo; `preferred-citation` points at the arXiv paper, which is
+# what a reader citing the work should use.
 cff-version: 1.2.0
 message: "If you use this work, please cite it using the metadata below."
 title: "How long can you trust a Starlink TLE? An empirical comparison of SGP4 and high-fidelity propagation against operator-updated truth across a megaconstellation"
@@ -23,3 +24,13 @@ keywords:
 date-released: "2026-05-18"
 version: "0.1.0"
 doi: "10.5281/zenodo.20277028"
+preferred-citation:
+  type: article
+  title: "How long can you trust a Starlink TLE? An empirical comparison of SGP4 and high-fidelity propagation against operator-updated truth across a megaconstellation"
+  authors:
+    - family-names: Jankovic
+      given-names: Dimitrije
+      affiliation: "Independent researcher — astro-tools"
+  year: 2026
+  doi: "10.48550/arXiv.2605.19850"
+  url: "https://arxiv.org/abs/2605.19850"
