@@ -36,9 +36,7 @@ from sweep.run_sweep import (
     _postprocess_run,
     _preprocess_pair,
     _Preprocessed,
-    _resolve_mission_script,
     _resume_compatible,
-    _resume_dispatch,
     _teme_to_mj2000,
     _teme_to_mj2000_matrix,
 )
@@ -238,19 +236,15 @@ class TestBuildRunSpec:
             ap_daily=8.0,
         )
 
-    def _spec(self, run_id: int = 3) -> object:
+    def _spec(self, run_id: int = 3, gmat_sw_file: Path | None = None) -> object:
         return _build_run_spec(
             self._pre(run_id),
             Path("mission.script"),
             Path("outputs"),
+            gmat_sw_file or Path("/abs/path/SpaceWeather-All-v1.2.txt"),
         )
 
     def test_overrides_complete(self) -> None:
-        # FM.Drag.CSSISpaceWeatherFile is *not* in this set: gmat-run's
-        # Mission.__setitem__ only accepts single-dot Resource.Field paths,
-        # so the SW-file value is baked into the script via
-        # `_resolve_mission_script` at sweep startup rather than overridden
-        # per run. See TestResolveMissionScript.
         spec = self._spec()
         assert set(spec.overrides) == {
             "Sat.Epoch",
@@ -266,6 +260,7 @@ class TestBuildRunSpec:
             "Sat.Cr",
             "Sat.SRPArea",
             "elapsed_seconds.Value",
+            "FM.Drag.CSSISpaceWeatherFile",
         }
 
     def test_per_sat_props_propagate_into_overrides(self) -> None:
@@ -278,94 +273,24 @@ class TestBuildRunSpec:
         assert spec.overrides["Sat.Cd"] == CD
         assert spec.overrides["Sat.Cr"] == CR
 
-    def test_output_dir_nests_run_id(self) -> None:
-        spec = self._spec(run_id=7)
-        assert spec.output_dir == Path("outputs/run_7")
-        assert spec.run_id == 7
+    def test_sw_file_override_is_absolute_string(self) -> None:
+        sw = Path("/abs/path/SpaceWeather-All-v1.2.txt")
+        spec = self._spec(gmat_sw_file=sw)
+        assert spec.overrides["FM.Drag.CSSISpaceWeatherFile"] == str(sw)
 
-    def test_run_options_set_overwrite_true(self) -> None:
-        # mission.run(overwrite=True) lets resumed/retried runs clear
-        # stale partial outputs left by a Ctrl-C'd worker. Without it,
-        # every retry of an interrupted run_id fails with "working_dir
-        # already contains output files".
-        spec = self._spec()
-        assert spec.run_options == {"overwrite": True}
+    def test_output_dir_nests_run_id(self) -> None:
+        # Per-run scratch dirs follow the gmat-sweep `run-<id>` convention
+        # so `Sweep.from_manifest().resume()` rebuilds matching paths.
+        spec = self._spec(run_id=7)
+        assert spec.output_dir == Path("outputs/run-7")
+        assert spec.run_id == 7
 
     def test_override_values_are_json_safe(self) -> None:
         spec = self._spec()
-        # RunSpec.overrides values must be JSON-encodable for the manifest.
-        # Floats and strings; no numpy scalars.
         for value in spec.overrides.values():
             assert isinstance(value, (str, float)), (
                 f"{type(value).__name__} is not JSON-safe in RunSpec.overrides"
             )
-
-
-class TestResolveMissionScript:
-    """Sweep-startup helper: bake the SW-file absolute path into the script."""
-
-    def _template(self, sw_path_literal: str = "src/static/SpaceWeather-All-v1.2.txt") -> str:
-        return (
-            "Create Spacecraft Sat;\n"
-            "GMAT FM.Drag.AtmosphereModel = NRLMSISE00;\n"
-            f"GMAT FM.Drag.CSSISpaceWeatherFile = '{sw_path_literal}';\n"
-            "GMAT FM.ErrorControl = RSSStep;\n"
-        )
-
-    def test_substitutes_absolute_path(self, tmp_path: Path) -> None:
-        template = tmp_path / "mission.script"
-        template.write_text(self._template(), encoding="utf-8")
-        out = tmp_path / ".mission.resolved.script"
-        sw = Path("/abs/path/to/SpaceWeather-All-v1.2.txt")
-
-        _resolve_mission_script(template, sw, out)
-
-        text = out.read_text(encoding="utf-8")
-        assert f"GMAT FM.Drag.CSSISpaceWeatherFile = '{sw}';" in text
-        # Other lines preserved verbatim.
-        assert "GMAT FM.Drag.AtmosphereModel = NRLMSISE00;" in text
-        assert "GMAT FM.ErrorControl = RSSStep;" in text
-
-    def test_replaces_existing_value_idempotently(self, tmp_path: Path) -> None:
-        # Re-running with a different SW path must clobber the previous
-        # value, not stack a second assignment.
-        template = tmp_path / "mission.script"
-        template.write_text(self._template("/old/path.txt"), encoding="utf-8")
-        out = tmp_path / ".mission.resolved.script"
-        sw = Path("/new/path.txt")
-
-        _resolve_mission_script(template, sw, out)
-
-        text = out.read_text(encoding="utf-8")
-        assert "/old/path.txt" not in text
-        assert "/new/path.txt" in text
-        # Exactly one CSSISpaceWeatherFile line in the output.
-        assert text.count("FM.Drag.CSSISpaceWeatherFile") == 1
-
-    def test_raises_when_placeholder_missing(self, tmp_path: Path) -> None:
-        # If the template loses the SW-file line, dispatching against it
-        # would silently fall back to the bundled file (the bug this
-        # whole PR fixes) — fail loudly instead.
-        template = tmp_path / "mission.script"
-        template.write_text("GMAT FM.Drag.AtmosphereModel = NRLMSISE00;\n", encoding="utf-8")
-        out = tmp_path / ".mission.resolved.script"
-
-        with pytest.raises(ValueError, match="expected exactly one"):
-            _resolve_mission_script(template, Path("/x.txt"), out)
-
-    def test_template_in_repo_substitutes_cleanly(self) -> None:
-        # End-to-end against the real sweep/mission.script template:
-        # confirms the regex matches the actual line shape on disk.
-        repo_root = Path(__file__).resolve().parents[1]
-        template = repo_root / "sweep" / "mission.script"
-        out = template.parent / ".mission.resolved.script"
-        sw = Path("/tmp/sw.txt")
-        try:
-            _resolve_mission_script(template, sw, out)
-            text = out.read_text(encoding="utf-8")
-            assert f"GMAT FM.Drag.CSSISpaceWeatherFile = '{sw}';" in text
-        finally:
-            out.unlink(missing_ok=True)
 
 
 class TestPostprocessRunSchema:
@@ -477,45 +402,6 @@ class TestResumeCompatible:
         self._write_manifest(path, run_count=8)
         with pytest.raises(SystemExit, match="run_count=8.*24641"):
             _resume_compatible(path, n_corpus_pairs=24_641)
-
-
-class TestResumeDispatchScriptHashCheck:
-    """Resume safety: refuse when the mission script changed since the manifest."""
-
-    def _write_manifest(self, path: Path, *, script_sha256: str) -> None:
-        header = {
-            "schema_version": 1,
-            "script_sha256": script_sha256,
-            "gmat_sweep_version": "t",
-            "gmat_run_version": "t",
-            "gmat_install_version": "t",
-            "python_version": "3.12",
-            "os_platform": "t",
-            "sweep_seed": None,
-            "parameter_spec": {"_kind": "explicit", "columns": [], "rows": []},
-            "run_count": 1,
-            "backend": "t",
-        }
-        path.write_text(json.dumps(header, sort_keys=True) + "\n", encoding="utf-8")
-
-    def test_script_hash_drift_raises_systemexit(self, tmp_path) -> None:
-        # A drifted manifest must refuse resume — otherwise the resumed
-        # runs would load a different script than the already-ok runs
-        # and the aggregated frame would be a mongrel.
-        script = tmp_path / "mission.script"
-        script.write_text("Create Spacecraft Sat\n", encoding="utf-8")
-
-        manifest = tmp_path / "manifest.jsonl"
-        self._write_manifest(manifest, script_sha256="b" * 64)  # not the real hash
-
-        with pytest.raises(SystemExit, match="script hash drifted"):
-            _resume_dispatch(
-                preprocessed=[],
-                mission=script,
-                output_dir=tmp_path,
-                manifest_path=manifest,
-                workers=1,
-            )
 
 
 class TestPostprocessAllSkipsExistingParquets:
