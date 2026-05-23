@@ -23,5 +23,5 @@ dependencies:
   # tree supports 3.11/3.12/3.13 and pins snakemake>=9.18.1.
   - pip:
     - showyourwork @ git+https://github.com/showyourwork/showyourwork@main
-    - gmat-sweep>=0.4
-    - gmat-run>=0.4
+    - gmat-sweep>=0.6
+    - gmat-run>=0.6
