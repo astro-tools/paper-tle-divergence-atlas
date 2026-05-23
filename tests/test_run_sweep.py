@@ -26,13 +26,14 @@ import pytest
 from astropy import units as u
 from astropy.coordinates import GCRS, TEME, CartesianDifferential, CartesianRepresentation
 from astropy.time import Time
+from gmat_sweep import RunOutcome
 
 from sweep.run_sweep import (
+    POSTPROCESS_HOOK,
     _build_run_spec,
+    _context_from_preprocessed,
     _decompose_rsw,
-    _filter_pairs_needing_postprocess,
     _gmat_epoch_string,
-    _postprocess_all,
     _postprocess_run,
     _preprocess_pair,
     _Preprocessed,
@@ -292,9 +293,68 @@ class TestBuildRunSpec:
                 f"{type(value).__name__} is not JSON-safe in RunSpec.overrides"
             )
 
+    def test_postprocess_hook_is_wired(self) -> None:
+        # The hook is what runs the per-run comparison inside the worker;
+        # if the import path drifts the worker raises on resolve.
+        spec = self._spec()
+        assert spec.postprocess == POSTPROCESS_HOOK
+        assert POSTPROCESS_HOOK == "sweep.run_sweep:_postprocess_run"
 
-class TestPostprocessRunSchema:
-    """End-to-end check that SW values land in the per-run parquet."""
+    def test_context_carries_payload_for_hook(self) -> None:
+        # The hook reads everything off `spec.context`; verify the keys
+        # the hook expects are present and JSON-safe.
+        spec = self._spec()
+        for key in (
+            "run_id",
+            "norad_id",
+            "target_dt_sec",
+            "epoch_i",
+            "epoch_j",
+            "actual_dt_sec",
+            "alt_shell",
+            "r_sgp4_pred_mj_km",
+            "r_truth_mj_km",
+            "v_truth_mj_km_s",
+            "f107",
+            "ap",
+        ):
+            assert key in spec.context, f"missing context key: {key}"
+        # Vectors are lists of floats, not numpy arrays — JSON-safe.
+        for vec_key in ("r_sgp4_pred_mj_km", "r_truth_mj_km", "v_truth_mj_km_s"):
+            assert isinstance(spec.context[vec_key], list)
+            assert all(isinstance(v, float) for v in spec.context[vec_key])
+        # Timestamps round-trip as ISO-8601 strings.
+        assert isinstance(spec.context["epoch_i"], str)
+        assert pd.Timestamp(spec.context["epoch_i"]) == pd.Timestamp("2026-04-01T00:00:00Z")
+
+
+def _synth_report_parquet(path: Path) -> None:
+    """Single-row GMAT FinalState report parquet for hook tests."""
+    pd.DataFrame(
+        {
+            "time": [0.0],
+            "Sat.X": [6800.0],
+            "Sat.Y": [0.0],
+            "Sat.Z": [0.0],
+            "Sat.VX": [0.0],
+            "Sat.VY": [7.5],
+            "Sat.VZ": [0.0],
+        }
+    ).to_parquet(path, index=False)
+
+
+def _synth_ok_outcome(run_id: int, report_path: Path) -> RunOutcome:
+    return RunOutcome.ok(
+        run_id=run_id,
+        output_paths={"report__FinalState": report_path},
+        started_at=dt.datetime(2026, 5, 1, 12, 0, 0, tzinfo=dt.UTC),
+        ended_at=dt.datetime(2026, 5, 1, 12, 0, 1, tzinfo=dt.UTC),
+        duration_s=1.0,
+    )
+
+
+class TestPostprocessHook:
+    """End-to-end check of the gmat-sweep postprocess hook."""
 
     def _pre(self) -> _Preprocessed:
         return _Preprocessed(
@@ -317,56 +377,115 @@ class TestPostprocessRunSchema:
             ap_daily=8.0,
         )
 
-    def test_f107_and_ap_are_real_floats_not_nan(self, tmp_path) -> None:
-        # Synthesise a GMAT FinalState report parquet with a single row.
-        report = tmp_path / "report__FinalState.parquet"
-        pd.DataFrame(
-            {
-                "time": [0.0],
-                "Sat.X": [6800.0],
-                "Sat.Y": [0.0],
-                "Sat.Z": [0.0],
-                "Sat.VX": [0.0],
-                "Sat.VY": [7.5],
-                "Sat.VZ": [0.0],
-            }
-        ).to_parquet(report, index=False)
+    def _spec(self, tmp_path: Path) -> object:
+        run_dir = tmp_path / "run-42"
+        run_dir.mkdir()
+        return _build_run_spec(
+            self._pre(),
+            mission_path=Path("mission.script"),
+            output_root=tmp_path,
+            gmat_sw_file=Path("/abs/sw.txt"),
+        )
 
-        out = tmp_path / "run_42.parquet"
-        _postprocess_run(self._pre(), report, out)
+    def test_hook_writes_comparison_parquet(self, tmp_path) -> None:
+        spec = self._spec(tmp_path)
+        spec.output_dir.mkdir(exist_ok=True)
+        report = spec.output_dir / "report__FinalState.parquet"
+        _synth_report_parquet(report)
 
-        df = pd.read_parquet(out)
-        assert df["f107"].dtype.kind == "f"
-        assert df["ap"].dtype.kind == "f"
+        result = _postprocess_run(spec, _synth_ok_outcome(42, report))
+
+        assert set(result) == {"comparison"}
+        out_path = result["comparison"]
+        assert out_path.is_file()
+        assert out_path == spec.output_dir / "comparison.parquet"
+
+    def test_comparison_schema_matches_aggregator(self, tmp_path) -> None:
+        spec = self._spec(tmp_path)
+        spec.output_dir.mkdir(exist_ok=True)
+        report = spec.output_dir / "report__FinalState.parquet"
+        _synth_report_parquet(report)
+        result = _postprocess_run(spec, _synth_ok_outcome(42, report))
+
+        df = pd.read_parquet(result["comparison"])
+        expected_columns = {
+            "run_id",
+            "norad_id",
+            "target_dt_sec",
+            "t_i",
+            "t_j",
+            "actual_dt_sec",
+            "alt_shell",
+            "dr_sgp4_km",
+            "dr_sgp4_radial_km",
+            "dr_sgp4_along_km",
+            "dr_sgp4_cross_km",
+            "dr_hifi_km",
+            "dr_hifi_radial_km",
+            "dr_hifi_along_km",
+            "dr_hifi_cross_km",
+            "f107",
+            "ap",
+        }
+        assert set(df.columns) == expected_columns
+
+    def test_sw_values_round_trip_from_context(self, tmp_path) -> None:
+        spec = self._spec(tmp_path)
+        spec.output_dir.mkdir(exist_ok=True)
+        report = spec.output_dir / "report__FinalState.parquet"
+        _synth_report_parquet(report)
+        result = _postprocess_run(spec, _synth_ok_outcome(42, report))
+
+        df = pd.read_parquet(result["comparison"])
         assert df["f107"].iloc[0] == pytest.approx(141.9)
         assert df["ap"].iloc[0] == pytest.approx(8.0)
+        # And finite — caught a real bug in #14's acceptance contract.
         assert np.isfinite(df["f107"].iloc[0])
         assert np.isfinite(df["ap"].iloc[0])
 
+    def test_t_i_round_trips_as_tz_aware_timestamp(self, tmp_path) -> None:
+        spec = self._spec(tmp_path)
+        spec.output_dir.mkdir(exist_ok=True)
+        report = spec.output_dir / "report__FinalState.parquet"
+        _synth_report_parquet(report)
+        result = _postprocess_run(spec, _synth_ok_outcome(42, report))
 
-class TestFilterPairsNeedingPostprocess:
-    """Resume helper: keep pairs that don't already have a comparison parquet."""
+        df = pd.read_parquet(result["comparison"])
+        # ISO-8601 string in context → tz-aware Timestamp in the comparison
+        # frame. Without the tz round-trip the figure scripts' groupby
+        # would silently drop the offset.
+        assert df["t_i"].iloc[0] == pd.Timestamp("2026-04-01T00:00:00Z")
 
-    def _pairs(self, n: int) -> pd.DataFrame:
-        return pd.DataFrame({"norad_id": list(range(n)), "x": [0] * n}).reset_index(drop=True)
 
-    def test_no_parquets_returns_all(self, tmp_path) -> None:
-        pairs = self._pairs(5)
-        result = _filter_pairs_needing_postprocess(pairs, tmp_path)
-        assert len(result) == 5
+class TestContextFromPreprocessed:
+    """The dict returned must be JSON-encodable (the manifest stores it as JSON)."""
 
-    def test_drops_pairs_with_existing_parquet(self, tmp_path) -> None:
-        pairs = self._pairs(5)
-        (tmp_path / "run_0.parquet").write_bytes(b"x")
-        (tmp_path / "run_3.parquet").write_bytes(b"x")
-        result = _filter_pairs_needing_postprocess(pairs, tmp_path)
-        assert list(result.index) == [1, 2, 4]
-
-    def test_all_done_returns_empty(self, tmp_path) -> None:
-        pairs = self._pairs(3)
-        for i in range(3):
-            (tmp_path / f"run_{i}.parquet").write_bytes(b"x")
-        assert len(_filter_pairs_needing_postprocess(pairs, tmp_path)) == 0
+    def test_round_trips_through_json(self) -> None:
+        pre = _Preprocessed(
+            run_id=3,
+            norad_id=44713,
+            target_dt_sec=86_400,
+            epoch_i=pd.Timestamp("2026-04-01T00:00:00Z"),
+            epoch_j=pd.Timestamp("2026-04-02T00:00:00Z"),
+            actual_dt_sec=86_400.0,
+            alt_shell="550",
+            r_init_mj_km=np.array([6800.0, 0.0, 0.0]),
+            v_init_mj_km_s=np.array([0.0, 7.5, 0.5]),
+            r_sgp4_pred_mj_km=np.array([1.0, 2.0, 3.0]),
+            r_truth_mj_km=np.array([4.0, 5.0, 6.0]),
+            v_truth_mj_km_s=np.array([7.0, 8.0, 9.0]),
+            dry_mass_kg=305.0,
+            drag_area_m2=5.0,
+            srp_area_m2=5.0,
+            f107_obs=141.9,
+            ap_daily=8.0,
+        )
+        ctx = _context_from_preprocessed(pre)
+        # `json.dumps` raises on numpy scalars, Timestamps, ndarrays — so
+        # success here is the contract.
+        encoded = json.dumps(ctx)
+        decoded = json.loads(encoded)
+        assert decoded == ctx
 
 
 class TestResumeCompatible:
@@ -402,81 +521,6 @@ class TestResumeCompatible:
         self._write_manifest(path, run_count=8)
         with pytest.raises(SystemExit, match="run_count=8.*24641"):
             _resume_compatible(path, n_corpus_pairs=24_641)
-
-
-class TestPostprocessAllSkipsExistingParquets:
-    """Idempotency: re-running postprocess does not rewrite finished parquets."""
-
-    def _entry(self, run_id: int, status: str, report_path: Path | None) -> dict:
-        now = dt.datetime(2026, 5, 1, 12, 0, 0, tzinfo=dt.UTC).isoformat()
-        return {
-            "run_id": run_id,
-            "overrides": {},
-            "status": status,
-            "output_paths": {"report__FinalState": str(report_path)} if report_path else {},
-            "started_at": now,
-            "ended_at": now,
-            "duration_s": 1.0,
-            "stderr": None,
-            "log_path": None,
-        }
-
-    def _write_manifest(self, path: Path, entries: list[dict]) -> None:
-        header = {
-            "schema_version": 1,
-            "script_sha256": "0" * 64,
-            "gmat_sweep_version": "t",
-            "gmat_run_version": "t",
-            "gmat_install_version": "t",
-            "python_version": "3.12",
-            "os_platform": "t",
-            "sweep_seed": None,
-            "parameter_spec": {"_kind": "explicit", "columns": [], "rows": []},
-            "run_count": len(entries),
-            "backend": "t",
-        }
-        lines = [json.dumps(header, sort_keys=True)]
-        lines.extend(json.dumps(e, sort_keys=True) for e in entries)
-        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-    def test_existing_parquet_is_not_rewritten(self, tmp_path) -> None:
-        # An ok manifest entry whose run_<id>.parquet already exists must
-        # not be re-postprocessed, even when its _Preprocessed is in the
-        # batch (e.g. preprocessing ran defensively over all corpus rows).
-        out_path = tmp_path / "run_42.parquet"
-        sentinel = b"already postprocessed"
-        out_path.write_bytes(sentinel)
-
-        report_path = tmp_path / "report__FinalState.parquet"
-        report_path.write_bytes(b"")  # presence only; never read
-
-        manifest_path = tmp_path / "manifest.jsonl"
-        self._write_manifest(manifest_path, [self._entry(42, "ok", report_path)])
-
-        pre = _Preprocessed(
-            run_id=42,
-            norad_id=44713,
-            target_dt_sec=86_400,
-            epoch_i=pd.Timestamp("2026-04-01T00:00:00Z"),
-            epoch_j=pd.Timestamp("2026-04-02T00:00:00Z"),
-            actual_dt_sec=86_400.0,
-            alt_shell="550",
-            r_init_mj_km=np.array([6800.0, 0.0, 0.0]),
-            v_init_mj_km_s=np.array([0.0, 7.5, 0.0]),
-            r_sgp4_pred_mj_km=np.array([6800.1, 0.0, 0.0]),
-            r_truth_mj_km=np.array([6800.0, 0.0, 0.0]),
-            v_truth_mj_km_s=np.array([0.0, 7.5, 0.0]),
-            dry_mass_kg=248.0,
-            drag_area_m2=5.0,
-            srp_area_m2=5.0,
-            f107_obs=141.9,
-            ap_daily=8.0,
-        )
-
-        ok, failed = _postprocess_all([pre], manifest_path, tmp_path)
-        assert ok == 1 and failed == 0
-        # The sentinel bytes are intact — postprocess did not rewrite.
-        assert out_path.read_bytes() == sentinel
 
 
 if __name__ == "__main__":  # pragma: no cover
