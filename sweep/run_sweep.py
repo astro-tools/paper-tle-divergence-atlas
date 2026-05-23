@@ -508,6 +508,7 @@ def _dispatch_sweep(
                 output_dir=output_dir,
                 script_path=mission,
                 sweep_seed=None,
+                postprocess=POSTPROCESS_HOOK,
                 progress=True,
             ).run()
 
