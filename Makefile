@@ -33,8 +33,8 @@ help:
 	@echo "  build        -- render PDF via showyourwork (uses Zenodo-cached outputs)"
 	@echo "  smoke        -- run an N=8 sweep against the cached corpus (requires GMAT)"
 	@echo "  sweep        -- run the gmat-sweep locally (requires GMAT; ~10 h on 8 cores)"
-	@echo "  aggregate    -- concat outputs/run_*.parquet + join corpus cols →"
-	@echo "                  outputs/all_runs.parquet"
+	@echo "  aggregate    -- concat per-run comparison parquets (from the sweep's"
+	@echo "                  postprocess hook) + join corpus cols → outputs/all_runs.parquet"
 	@echo "  sweep-stats  -- per-bucket / per-(shell,gen) median+IQR and manifest"
 	@echo "                  failure tally → outputs/sweep_stats.txt"
 	@echo "  diagnostics  -- render outputs/_diagnostic_sweep_scatter.png"
@@ -152,7 +152,6 @@ sweep:
 
 aggregate:
 	python -m sweep.aggregate \
-	    --output-dir outputs/ \
 	    --tles src/static/tles_cache.parquet \
 	    --manifest sweep/manifest.jsonl \
 	    --out outputs/all_runs.parquet

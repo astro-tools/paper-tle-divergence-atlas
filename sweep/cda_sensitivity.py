@@ -8,18 +8,19 @@ this driver only computes the two off-baseline frames. Output:
     outputs/all_runs_cda_low.parquet     (CdA factor 0.8 — drag_area × 0.8)
     outputs/all_runs_cda_high.parquet    (CdA factor 1.2 — drag_area × 1.2)
 
-Per-run schema mirrors `outputs/run_<id>.parquet` plus three columns:
-`cda_factor` (the multiplier applied), `applied_drag_area_m2` (the value
-actually fed to GMAT), and `generation` (always `v2-mini` for these
-frames). The baseline column carry from `sweep.aggregate` is bypassed —
-the v2-mini-only filter makes the join unnecessary.
+Per-run schema mirrors the main sweep's comparison frame plus three
+columns: `cda_factor` (the multiplier applied), `applied_drag_area_m2`
+(the value actually fed to GMAT), and `generation` (always `v2-mini`
+for these frames). The baseline column carry from `sweep.aggregate` is
+bypassed — the v2-mini-only filter makes the join unnecessary.
 
-The driver mirrors the per-pair preprocessing, RunSpec construction, and
-postprocessing of `sweep.run_sweep` so the two sweeps are
-bit-comparable: the only deliberate difference per pair is the
-`Sat.DragArea` override. Reusing the imported helpers avoids any
-silent divergence between this sensitivity arm and the main sweep
-hi-fid arm.
+The driver reuses the main sweep's preprocessing, RunSpec construction,
+and postprocess plumbing so the two sweeps are bit-comparable: the
+only deliberate difference per pair is the `Sat.DragArea` override.
+The per-run postprocess hook runs inside the gmat-sweep worker after
+each successful GMAT step (`sweep.cda_sensitivity:_postprocess_run`),
+reading the per-pair payload off `RunSpec.context` — same shape as the
+main sweep's hook with three extra context keys.
 
 Output layout (gitignored, deposited to Zenodo alongside the main sweep
 bundle as part of the v0.1.0 release cut):
@@ -27,8 +28,7 @@ bundle as part of the v0.1.0 release cut):
     outputs/_cda_sensitivity/
         cda_0.8/
             manifest.jsonl
-            run_<id>/        # GMAT scratch per run
-            run_<id>.parquet # one-row comparison frame
+            run-<id>/            # GMAT scratch + comparison.parquet
         cda_1.2/
             ...same shape...
 
@@ -43,19 +43,19 @@ from __future__ import annotations
 import argparse
 import sys
 import time
+from dataclasses import replace
 from pathlib import Path
 from typing import Final
 
 import numpy as np
 import pandas as pd
-from gmat_sweep import LocalJoblibPool, Manifest, RunSpec, Sweep
+from gmat_sweep import LocalJoblibPool, RunOutcome, RunSpec, Sweep, lazy_extra_outputs
 
 from sweep.run_sweep import (
     _build_run_spec,
     _decompose_rsw,
     _final_gmat_state,
     _preprocess_all,
-    _Preprocessed,
 )
 from sweep.space_weather import load_sw_cache
 
@@ -63,25 +63,36 @@ DEFAULT_WORKERS: Final = 8
 DEFAULT_CDA_FACTORS: Final = (0.8, 1.2)
 GENERATION_V2_MINI: Final = "v2-mini"
 
+POSTPROCESS_HOOK: Final = "sweep.cda_sensitivity:_postprocess_run"
+
 _FACTOR_LABELS: Final = {0.8: "low", 1.2: "high"}
 
 
 def _scale_drag_area(spec: RunSpec, factor: float) -> RunSpec:
-    """Return a new RunSpec with `Sat.DragArea` multiplied by `factor`.
+    """Return a new RunSpec with `Sat.DragArea` and the CdA-context multiplied.
 
-    Every other override is preserved verbatim. `factor == 1.0` is a no-op
-    that still returns a fresh RunSpec instance, so the caller can blindly
-    map across all factors without special-casing the baseline.
+    Both the GMAT override and the postprocess hook's context get the
+    scaled drag area (`applied_drag_area_m2`) and `cda_factor` so the
+    hook can emit them verbatim into the comparison row. The CdA hook
+    (`sweep.cda_sensitivity:_postprocess_run`) is also wired here so a
+    spec from `sweep.run_sweep._build_run_spec` gets the right
+    importable hook path for this driver. `factor == 1.0` is a no-op
+    for the science but still returns a fresh spec instance so the
+    caller can blindly map across all factors.
     """
+    baseline = float(spec.overrides["Sat.DragArea"])
+    scaled = baseline * float(factor)
     new_overrides = dict(spec.overrides)
-    new_overrides["Sat.DragArea"] = float(spec.overrides["Sat.DragArea"]) * float(factor)
-    return RunSpec(
-        script_path=spec.script_path,
+    new_overrides["Sat.DragArea"] = scaled
+    new_context = dict(spec.context)
+    new_context["cda_factor"] = float(factor)
+    new_context["applied_drag_area_m2"] = scaled
+    new_context["generation"] = GENERATION_V2_MINI
+    return replace(
+        spec,
         overrides=new_overrides,
-        output_dir=spec.output_dir,
-        run_id=spec.run_id,
-        seed=spec.seed,
-        run_options=spec.run_options,
+        context=new_context,
+        postprocess=POSTPROCESS_HOOK,
     )
 
 
@@ -104,37 +115,36 @@ def select_v2_mini_subset(corpus: pd.DataFrame, subset_ids_path: Path) -> pd.Dat
     return sub[sub["generation"] == GENERATION_V2_MINI].copy()
 
 
-def _postprocess_run(
-    pre: _Preprocessed,
-    report_path: Path,
-    out_path: Path,
-    cda_factor: float,
-    applied_drag_area_m2: float,
-) -> dict:
-    """Per-run comparison row. Mirrors `run_sweep._postprocess_run`.
+def _postprocess_run(spec: RunSpec, outcome: RunOutcome) -> dict[str, Path]:
+    """gmat-sweep postprocess hook for the CdA sensitivity arm.
 
-    Additions over the main-sweep schema: `cda_factor`,
-    `applied_drag_area_m2`, and `generation` (always `v2-mini` for this
-    sensitivity arm). Carries the per-pair pre-computed
-    SGP4 prediction and truth state through unchanged — those terms do
-    not depend on the CdA factor, so the SGP4-vs-truth Δr column is
-    identical to the corresponding baseline row, which is the intent.
+    Mirrors `sweep.run_sweep._postprocess_run` and adds three columns
+    from the spec's context: `cda_factor`, `applied_drag_area_m2`, and
+    `generation` (always `v2-mini`). The SGP4-vs-truth Δr is identical
+    to the corresponding baseline row, by construction.
     """
+    report_path = Path(outcome.output_paths["report__FinalState"])
     r_hifi_mj, _ = _final_gmat_state(report_path)
-    dr_sgp4 = pre.r_sgp4_pred_mj_km - pre.r_truth_mj_km
-    dr_hifi = r_hifi_mj - pre.r_truth_mj_km
 
-    sgp4_r, sgp4_a, sgp4_c = _decompose_rsw(dr_sgp4, pre.r_truth_mj_km, pre.v_truth_mj_km_s)
-    hifi_r, hifi_a, hifi_c = _decompose_rsw(dr_hifi, pre.r_truth_mj_km, pre.v_truth_mj_km_s)
+    ctx = spec.context
+    r_sgp4_pred = np.asarray(ctx["r_sgp4_pred_mj_km"], dtype=float)
+    r_truth = np.asarray(ctx["r_truth_mj_km"], dtype=float)
+    v_truth = np.asarray(ctx["v_truth_mj_km_s"], dtype=float)
+
+    dr_sgp4 = r_sgp4_pred - r_truth
+    dr_hifi = r_hifi_mj - r_truth
+
+    sgp4_r, sgp4_a, sgp4_c = _decompose_rsw(dr_sgp4, r_truth, v_truth)
+    hifi_r, hifi_a, hifi_c = _decompose_rsw(dr_hifi, r_truth, v_truth)
 
     row = {
-        "run_id": pre.run_id,
-        "norad_id": pre.norad_id,
-        "target_dt_sec": pre.target_dt_sec,
-        "t_i": pre.epoch_i,
-        "t_j": pre.epoch_j,
-        "actual_dt_sec": pre.actual_dt_sec,
-        "alt_shell": pre.alt_shell,
+        "run_id": int(ctx["run_id"]),
+        "norad_id": int(ctx["norad_id"]),
+        "target_dt_sec": int(ctx["target_dt_sec"]),
+        "t_i": pd.Timestamp(ctx["epoch_i"]),
+        "t_j": pd.Timestamp(ctx["epoch_j"]),
+        "actual_dt_sec": float(ctx["actual_dt_sec"]),
+        "alt_shell": str(ctx["alt_shell"]),
         "dr_sgp4_km": float(np.linalg.norm(dr_sgp4)),
         "dr_sgp4_radial_km": sgp4_r,
         "dr_sgp4_along_km": sgp4_a,
@@ -143,51 +153,24 @@ def _postprocess_run(
         "dr_hifi_radial_km": hifi_r,
         "dr_hifi_along_km": hifi_a,
         "dr_hifi_cross_km": hifi_c,
-        "f107": pre.f107_obs,
-        "ap": pre.ap_daily,
-        "cda_factor": float(cda_factor),
-        "applied_drag_area_m2": float(applied_drag_area_m2),
-        "generation": GENERATION_V2_MINI,
+        "f107": float(ctx["f107"]),
+        "ap": float(ctx["ap"]),
+        "cda_factor": float(ctx["cda_factor"]),
+        "applied_drag_area_m2": float(ctx["applied_drag_area_m2"]),
+        "generation": str(ctx["generation"]),
     }
+    out_path = spec.output_dir / "comparison.parquet"
     pd.DataFrame([row]).to_parquet(out_path, index=False)
-    return row
+    return {"comparison": out_path}
 
 
-def _aggregate_factor(
-    preprocessed: list[_Preprocessed],
-    manifest_path: Path,
-    factor_dir: Path,
-    factor: float,
-) -> pd.DataFrame:
-    """Walk the manifest, postprocess each ok entry, return aggregated frame."""
-    by_run_id = {p.run_id: p for p in preprocessed}
-    manifest = Manifest.load(manifest_path)
-    rows: list[dict] = []
-    for entry in manifest.entries:
-        if entry.status != "ok":
-            continue
-        pre = by_run_id.get(entry.run_id)
-        if pre is None:
-            print(
-                f"  run_id={entry.run_id}: ok in manifest but no preprocess data; skipping",
-                file=sys.stderr,
-            )
-            continue
-        report_path_obj = entry.output_paths.get("report__FinalState")
-        if report_path_obj is None or not Path(report_path_obj).exists():
-            print(
-                f"  run_id={entry.run_id}: no FinalState report; skipping postprocess",
-                file=sys.stderr,
-            )
-            continue
-        out_path = factor_dir / f"run_{pre.run_id}.parquet"
-        applied = pre.drag_area_m2 * float(factor)
-        rows.append(
-            _postprocess_run(pre, Path(report_path_obj), out_path, factor, applied),
-        )
-    if not rows:
+def _aggregate_factor(manifest_path: Path, factor: float) -> pd.DataFrame:
+    """Stream every ok manifest entry's `comparison` output into one frame."""
+    frame = lazy_extra_outputs(manifest_path, "comparison")
+    ok = frame[frame["__status"] == "ok"].drop(columns="__status")
+    if ok.empty:
         raise RuntimeError(f"no runs were postprocessed at CdA factor {factor:g}")
-    return pd.DataFrame(rows)
+    return ok.reset_index(drop=True)
 
 
 def run_one_factor(
@@ -226,6 +209,10 @@ def run_one_factor(
     if not preprocessed:
         raise RuntimeError(f"no pairs survived preprocessing at CdA factor {factor:g}")
 
+    # Build the base spec via the main-sweep helper so the GMAT-input
+    # overrides and the postprocess context are populated identically;
+    # `_scale_drag_area` then layers the CdA-specific override, context
+    # keys, and postprocess hook on top.
     base_specs = [_build_run_spec(p, mission, factor_dir, gmat_sw_file) for p in preprocessed]
     scaled_specs = [_scale_drag_area(s, factor) for s in base_specs]
 
@@ -247,9 +234,9 @@ def run_one_factor(
         ).run()
     print(f"    sweep finished in {time.monotonic() - t0:.1f} s", file=sys.stderr)
 
-    df = _aggregate_factor(preprocessed, manifest_path, factor_dir, factor)
+    df = _aggregate_factor(manifest_path, factor)
     print(
-        f"=== CdA factor {factor:g}: postprocessed {len(df)} run(s) ===",
+        f"=== CdA factor {factor:g}: aggregated {len(df)} run(s) ===",
         file=sys.stderr,
     )
     return df

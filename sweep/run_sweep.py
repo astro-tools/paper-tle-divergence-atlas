@@ -5,7 +5,7 @@ a satellite forward from t_i to t_j using both SGP4 (from TLE_i) and GMAT
 high-fidelity force models, then compares both predictions against the
 operator's next-TLE truth (SGP4(TLE_j, Δt=0)).
 
-Pipeline (three phases, single process for the driver):
+Pipeline (two phases, single process for the driver):
 
     1. Preprocess each pair (Python, no GMAT):
        - Evaluate SGP4(TLE_i, 0) and SGP4(TLE_i, dt) in TEME.
@@ -14,21 +14,23 @@ Pipeline (three phases, single process for the driver):
          procedure (precession × nutation × equation-of-equinox, composed
          from `erfa` primitives), so the state we hand to GMAT lives in
          the same inertial frame GMAT propagates in.
+       - Stash the per-pair payload the postprocess hook needs
+         (truth state, SGP4 prediction, SW values, identifiers) on
+         each `RunSpec.context`.
 
     2. GMAT sweep: build one RunSpec per pair with field overrides
        (`Sat.Epoch`, `Sat.X..VZ`, `elapsed_seconds.Value`,
        `FM.Drag.CSSISpaceWeatherFile`) and dispatch through
-       `gmat_sweep.Sweep` over a `LocalJoblibPool`. Each run writes its
-       ReportFile as `outputs/run-<id>/report__FinalState.parquet` and
-       the sweep manifest lands at `--manifest` (default `sweep/manifest.jsonl`,
-       outside `outputs/` so it can be committed).
-
-    3. Postprocess each successful run: read the run's report parquet,
-       take the final integration step (state at t_j in MJ2000Eq),
-       compute Δr_hifi vs. truth, recover Δr_sgp4 from the precomputed
-       SGP4 prediction, decompose both into radial/along/cross relative
-       to the truth state's RSW frame, and emit a one-row
-       `outputs/run_<id>.parquet` with the comparison columns.
+       `gmat_sweep.Sweep` over a `LocalJoblibPool` with the per-run
+       postprocess hook `sweep.run_sweep:_postprocess_run` registered.
+       Each worker writes its ReportFile to
+       `outputs/run-<id>/report__FinalState.parquet`, then the hook
+       reads it, computes Δr_hifi and Δr_sgp4 against truth, decomposes
+       both into radial/along/cross relative to the truth state's RSW
+       frame, and emits `outputs/run-<id>/comparison.parquet` — a
+       one-row comparison frame recorded as the manifest entry's
+       `extra_outputs.comparison`. `sweep.aggregate` stitches them into
+       `outputs/all_runs.parquet` via `gmat_sweep.lazy_extra_outputs`.
 
 `f107` (daily observed F10.7, sfu) and `ap` (planetary daily Ap) are
 joined from `src/static/sw_cache.parquet` by `date(epoch_i)` UTC. The
@@ -52,7 +54,7 @@ import erfa
 import numpy as np
 import pandas as pd
 from astropy.time import Time
-from gmat_sweep import LocalJoblibPool, Manifest, RunSpec, Sweep
+from gmat_sweep import LocalJoblibPool, Manifest, RunOutcome, RunSpec, Sweep
 from sgp4.api import Satrec, jday
 
 from sweep.space_weather import (
@@ -213,10 +215,35 @@ def _preprocess_pair(
 # --- RunSpec build ---------------------------------------------------------
 
 
+POSTPROCESS_HOOK: Final = "sweep.run_sweep:_postprocess_run"
+
+
+# JSON-safe per-pair payload the postprocess hook reads back off
+# RunSpec.context. The GMAT-input fields (initial state, masses, areas)
+# live only in RunSpec.overrides — no duplication. Numpy arrays become
+# lists; tz-aware Timestamps become ISO-8601 strings so the dict round-trips
+# through the manifest's JSON encoding cleanly.
 def _gmat_epoch_string(epoch: pd.Timestamp) -> str:
     """Format as GMAT UTCGregorian: '01 Apr 2026 12:34:56.789'."""
     e = epoch.tz_convert("UTC")
     return f"{e.strftime('%d %b %Y %H:%M:%S')}.{e.microsecond // 1000:03d}"
+
+
+def _context_from_preprocessed(pre: _Preprocessed) -> dict[str, object]:
+    return {
+        "run_id": int(pre.run_id),
+        "norad_id": int(pre.norad_id),
+        "target_dt_sec": int(pre.target_dt_sec),
+        "epoch_i": pre.epoch_i.isoformat(),
+        "epoch_j": pre.epoch_j.isoformat(),
+        "actual_dt_sec": float(pre.actual_dt_sec),
+        "alt_shell": str(pre.alt_shell),
+        "r_sgp4_pred_mj_km": [float(x) for x in pre.r_sgp4_pred_mj_km],
+        "r_truth_mj_km": [float(x) for x in pre.r_truth_mj_km],
+        "v_truth_mj_km_s": [float(x) for x in pre.v_truth_mj_km_s],
+        "f107": float(pre.f107_obs),
+        "ap": float(pre.ap_daily),
+    }
 
 
 def _build_run_spec(
@@ -247,13 +274,12 @@ def _build_run_spec(
         run_id=pre.run_id,
         seed=None,
         run_options={},
+        postprocess=POSTPROCESS_HOOK,
+        context=_context_from_preprocessed(pre),
     )
 
 
 # --- Per-run postprocess ---------------------------------------------------
-
-
-_REPORT_COLUMNS: Final = ("Sat.X", "Sat.Y", "Sat.Z", "Sat.VX", "Sat.VY", "Sat.VZ")
 
 
 def _final_gmat_state(report_path: Path) -> tuple[np.ndarray, np.ndarray]:
@@ -266,22 +292,43 @@ def _final_gmat_state(report_path: Path) -> tuple[np.ndarray, np.ndarray]:
     return r, v
 
 
-def _postprocess_run(pre: _Preprocessed, report_path: Path, out_path: Path) -> dict:
-    r_hifi_mj, _ = _final_gmat_state(report_path)
-    dr_sgp4 = pre.r_sgp4_pred_mj_km - pre.r_truth_mj_km
-    dr_hifi = r_hifi_mj - pre.r_truth_mj_km
+def _postprocess_run(spec: RunSpec, outcome: RunOutcome) -> dict[str, Path]:
+    """gmat-sweep postprocess hook: per-run SGP4-vs-hifi-vs-truth comparison.
 
-    sgp4_r, sgp4_a, sgp4_c = _decompose_rsw(dr_sgp4, pre.r_truth_mj_km, pre.v_truth_mj_km_s)
-    hifi_r, hifi_a, hifi_c = _decompose_rsw(dr_hifi, pre.r_truth_mj_km, pre.v_truth_mj_km_s)
+    Reads the GMAT FinalState report parquet the worker produced, joins
+    against the per-pair payload stashed on ``spec.context`` (truth state,
+    SGP4 prediction, identifiers, SW values), decomposes both deltas in
+    the truth state's RSW frame, and writes a one-row Parquet next to
+    the worker's other artefacts. The returned ``{"comparison": path}``
+    becomes the manifest entry's ``extra_outputs.comparison`` and feeds
+    :func:`sweep.aggregate.aggregate` via
+    :func:`gmat_sweep.lazy_extra_outputs`.
+
+    Module-level / importable: the worker re-imports this in each
+    subprocess via ``spec.postprocess`` (``sweep.run_sweep:_postprocess_run``).
+    """
+    report_path = Path(outcome.output_paths["report__FinalState"])
+    r_hifi_mj, _ = _final_gmat_state(report_path)
+
+    ctx = spec.context
+    r_sgp4_pred = np.asarray(ctx["r_sgp4_pred_mj_km"], dtype=float)
+    r_truth = np.asarray(ctx["r_truth_mj_km"], dtype=float)
+    v_truth = np.asarray(ctx["v_truth_mj_km_s"], dtype=float)
+
+    dr_sgp4 = r_sgp4_pred - r_truth
+    dr_hifi = r_hifi_mj - r_truth
+
+    sgp4_r, sgp4_a, sgp4_c = _decompose_rsw(dr_sgp4, r_truth, v_truth)
+    hifi_r, hifi_a, hifi_c = _decompose_rsw(dr_hifi, r_truth, v_truth)
 
     row = {
-        "run_id": pre.run_id,
-        "norad_id": pre.norad_id,
-        "target_dt_sec": pre.target_dt_sec,
-        "t_i": pre.epoch_i,
-        "t_j": pre.epoch_j,
-        "actual_dt_sec": pre.actual_dt_sec,
-        "alt_shell": pre.alt_shell,
+        "run_id": int(ctx["run_id"]),
+        "norad_id": int(ctx["norad_id"]),
+        "target_dt_sec": int(ctx["target_dt_sec"]),
+        "t_i": pd.Timestamp(ctx["epoch_i"]),
+        "t_j": pd.Timestamp(ctx["epoch_j"]),
+        "actual_dt_sec": float(ctx["actual_dt_sec"]),
+        "alt_shell": str(ctx["alt_shell"]),
         "dr_sgp4_km": float(np.linalg.norm(dr_sgp4)),
         "dr_sgp4_radial_km": sgp4_r,
         "dr_sgp4_along_km": sgp4_a,
@@ -290,11 +337,12 @@ def _postprocess_run(pre: _Preprocessed, report_path: Path, out_path: Path) -> d
         "dr_hifi_radial_km": hifi_r,
         "dr_hifi_along_km": hifi_a,
         "dr_hifi_cross_km": hifi_c,
-        "f107": pre.f107_obs,
-        "ap": pre.ap_daily,
+        "f107": float(ctx["f107"]),
+        "ap": float(ctx["ap"]),
     }
+    out_path = spec.output_dir / "comparison.parquet"
     pd.DataFrame([row]).to_parquet(out_path, index=False)
-    return row
+    return {"comparison": out_path}
 
 
 # --- CLI / driver ----------------------------------------------------------
@@ -385,23 +433,6 @@ def _preprocess_all(
     return out
 
 
-def _filter_pairs_needing_postprocess(pairs: pd.DataFrame, output_dir: Path) -> pd.DataFrame:
-    """Drop pairs whose run_<id>.parquet already exists on disk.
-
-    Lets the resume path skip preprocessing for runs that already
-    landed a comparison parquet — preprocessing is otherwise
-    O(40 min) at full corpus size, deterministic, and would re-derive
-    state we already used to write the parquet.
-
-    Index of `pairs` carries the run_id (set via `reset_index(drop=True)`
-    upstream).
-    """
-    needed = [
-        run_id for run_id in pairs.index if not (output_dir / f"run_{run_id}.parquet").exists()
-    ]
-    return pairs.loc[needed]
-
-
 def _resume_compatible(manifest_path: Path, n_corpus_pairs: int) -> bool:
     """True if an existing manifest matches the current corpus and we should resume.
 
@@ -424,6 +455,30 @@ def _resume_compatible(manifest_path: Path, n_corpus_pairs: int) -> bool:
     return True
 
 
+def _make_context_provider(
+    pairs: pd.DataFrame,
+    sw_lookup: dict[dt.date, SwRow],
+) -> object:
+    """Lazy preprocess for runs the manifest forgot.
+
+    `Sweep.from_manifest` restores each entry's `context` from disk — so a
+    resumed sweep does not re-preprocess pairs whose entries already
+    landed. The only run_ids without a stored context are the ones that
+    never produced a manifest entry at all (a cataclysmic mid-dispatch
+    interrupt before the first worker wrote). For those, gmat-sweep calls
+    this callback with the run's integer `run_id`; we look the pair up by
+    its corpus row index and run `_preprocess_pair` on demand.
+    """
+    pairs_by_run_id = pairs.set_index(pairs.index.astype(int))
+
+    def provider(run_id: int) -> dict[str, object]:
+        pair = pairs_by_run_id.loc[run_id]
+        pre = _preprocess_pair(int(run_id), pair, sw_lookup)
+        return _context_from_preprocessed(pre)
+
+    return provider
+
+
 def _dispatch_sweep(
     preprocessed: list[_Preprocessed],
     mission: Path,
@@ -432,6 +487,7 @@ def _dispatch_sweep(
     gmat_sw_file: Path,
     workers: int,
     resume: bool,
+    context_provider: object | None = None,
 ) -> None:
     run_specs = [_build_run_spec(p, mission, output_dir, gmat_sw_file) for p in preprocessed]
     with LocalJoblibPool(max_workers=workers) as pool:
@@ -441,6 +497,7 @@ def _dispatch_sweep(
                 mission,
                 backend=pool,
                 output_dir=output_dir,
+                context_provider=context_provider,
                 progress=True,
             ).resume()
         else:
@@ -455,49 +512,16 @@ def _dispatch_sweep(
             ).run()
 
 
-def _postprocess_all(
-    preprocessed: list[_Preprocessed],
-    manifest_path: Path,
-    output_dir: Path,
-) -> tuple[int, int]:
-    by_run_id = {p.run_id: p for p in preprocessed}
+def _summarise_manifest(manifest_path: Path) -> tuple[int, int]:
+    """Count ok-with-comparison-output vs failed/missing for the end-of-run summary."""
     manifest = Manifest.load(manifest_path)
     ok = 0
     failed = 0
     for entry in manifest.entries:
-        if entry.status != "ok":
-            failed += 1
-            continue
-        out_path = output_dir / f"run_{entry.run_id}.parquet"
-        if out_path.exists():
-            # Already postprocessed in a prior batch. The upstream pair
-            # filter normally drops these from `preprocessed`, so this
-            # branch also covers them; counting them as ok preserves the
-            # invariant "ok manifest entries == rows in all_runs.parquet".
+        if entry.status == "ok" and "comparison" in entry.extra_outputs:
             ok += 1
-            continue
-        pre = by_run_id.get(entry.run_id)
-        if pre is None:
-            # Ok manifest entry whose pair is neither in this preprocess
-            # batch nor postprocessed yet — only happens if the manifest
-            # was edited out of band. Surface and move on.
-            print(
-                f"  run_id={entry.run_id}: ok in manifest but no preprocess data; "
-                f"skipping postprocess",
-                file=sys.stderr,
-            )
+        else:
             failed += 1
-            continue
-        report_path = entry.output_paths.get("report__FinalState")
-        if report_path is None or not Path(report_path).exists():
-            print(
-                f"  run_id={entry.run_id}: no FinalState report; skipping postprocess",
-                file=sys.stderr,
-            )
-            failed += 1
-            continue
-        _postprocess_run(pre, Path(report_path), out_path)
-        ok += 1
     return ok, failed
 
 
@@ -546,42 +570,40 @@ def main() -> int:
     )
 
     # Resume if an existing manifest matches the current corpus; otherwise
-    # fresh dispatch. The fresh path always re-runs from scratch; resume
-    # delegates to `Sweep.from_manifest(...).resume()` which re-dispatches
-    # only the failed and missing entries.
+    # fresh dispatch. The fresh path preprocesses every pair and dispatches
+    # through Sweep(...).run(); the resume path delegates to
+    # Sweep.from_manifest(...).resume(), which restores each entry's
+    # `context` from the manifest and re-dispatches only the failed and
+    # missing runs — no driver-side preprocess needed.
     resume = _resume_compatible(args.manifest, len(pairs))
     if resume:
         print(f"existing manifest at {args.manifest}; resuming sweep", file=sys.stderr)
 
-    # Preprocess only pairs that don't already have a comparison parquet
-    # on disk — preprocessing is deterministic and re-runs cleanly, but
-    # it costs O(40 min) at full corpus size, all of it wasted for pairs
-    # whose result we already saved.
-    pairs_to_process = _filter_pairs_needing_postprocess(pairs, args.output_dir)
-    if len(pairs_to_process) < len(pairs):
-        n_already = len(pairs) - len(pairs_to_process)
+    preprocessed: list[_Preprocessed]
+    context_provider: object | None
+    if resume:
+        # Provider runs only for run_ids whose entry never landed — see
+        # `_make_context_provider`. The common case is zero invocations.
+        preprocessed = []
+        context_provider = _make_context_provider(pairs, sw_lookup)
+    else:
+        print("phase 1/2: preprocess", file=sys.stderr)
+        t0 = time.monotonic()
+        preprocessed = _preprocess_all(pairs, sw_lookup)
         print(
-            f"skipping {n_already} pair(s) with existing run_<id>.parquet",
+            f"  preprocessed {len(preprocessed)}/{len(pairs)} pair(s) in "
+            f"{time.monotonic() - t0:.1f} s",
             file=sys.stderr,
         )
+        if not preprocessed:
+            print("no pairs survived preprocessing; aborting", file=sys.stderr)
+            return 1
+        context_provider = None
 
-    print("phase 1/3: preprocess", file=sys.stderr)
-    t0 = time.monotonic()
-    preprocessed = _preprocess_all(pairs_to_process, sw_lookup)
+    n_to_dispatch = "tbd via manifest" if resume else len(preprocessed)
     print(
-        f"  preprocessed {len(preprocessed)}/{len(pairs_to_process)} pair(s) in {time.monotonic() - t0:.1f} s",
-        file=sys.stderr,
-    )
-    if not preprocessed and not resume:
-        # On a fresh run an empty preprocess set means a broken corpus.
-        # On a resume it can legitimately mean "everything is already
-        # done"; we still call into the resume path so any leftover
-        # failed entries get retried.
-        print("no pairs survived preprocessing; aborting", file=sys.stderr)
-        return 1
-
-    print(
-        f"phase 2/3: GMAT sweep ({len(preprocessed)} runs to dispatch, {args.workers} workers)",
+        f"phase 2/2: GMAT sweep ({n_to_dispatch} runs to dispatch, "
+        f"{args.workers} workers; postprocess runs inline as a hook)",
         file=sys.stderr,
     )
     t0 = time.monotonic()
@@ -593,17 +615,11 @@ def main() -> int:
         args.gmat_sw_file,
         args.workers,
         resume=resume,
+        context_provider=context_provider,
     )
     print(f"  sweep finished in {time.monotonic() - t0:.1f} s", file=sys.stderr)
 
-    print("phase 3/3: postprocess", file=sys.stderr)
-    t0 = time.monotonic()
-    ok, failed = _postprocess_all(preprocessed, args.manifest, args.output_dir)
-    print(
-        f"  postprocessed {ok} run(s), {failed} failed/missing, {time.monotonic() - t0:.1f} s",
-        file=sys.stderr,
-    )
-
+    ok, failed = _summarise_manifest(args.manifest)
     print(f"DONE: {ok} run(s) ok, {failed} failed/missing", file=sys.stderr)
     return 0 if ok > 0 else 1
 
