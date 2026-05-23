@@ -51,14 +51,11 @@ import pandas as pd
 from gmat_sweep import LocalJoblibPool, Manifest, RunSpec, Sweep
 
 from sweep.run_sweep import (
-    _OVERRIDE_COLUMNS,
-    _RESOLVED_SCRIPT_NAME,
     _build_run_spec,
     _decompose_rsw,
     _final_gmat_state,
     _preprocess_all,
     _Preprocessed,
-    _resolve_mission_script,
 )
 from sweep.space_weather import load_sw_cache
 
@@ -199,6 +196,7 @@ def run_one_factor(
     sw_lookup: dict,
     factor: float,
     output_root: Path,
+    gmat_sw_file: Path,
     workers: int,
 ) -> pd.DataFrame:
     """Run the GMAT sweep at a single CdA factor; return the aggregated frame.
@@ -228,14 +226,8 @@ def run_one_factor(
     if not preprocessed:
         raise RuntimeError(f"no pairs survived preprocessing at CdA factor {factor:g}")
 
-    base_specs = [_build_run_spec(p, mission, factor_dir) for p in preprocessed]
+    base_specs = [_build_run_spec(p, mission, factor_dir, gmat_sw_file) for p in preprocessed]
     scaled_specs = [_scale_drag_area(s, factor) for s in base_specs]
-
-    parameter_spec = {
-        "_kind": "explicit",
-        "columns": list(_OVERRIDE_COLUMNS),
-        "rows": [[s.overrides[c] for c in _OVERRIDE_COLUMNS] for s in scaled_specs],
-    }
 
     print(
         f"=== CdA factor {factor:g}: dispatching {len(scaled_specs)} GMAT run(s), "
@@ -250,7 +242,6 @@ def run_one_factor(
             manifest_path=manifest_path,
             output_dir=factor_dir,
             script_path=mission,
-            parameter_spec=parameter_spec,
             sweep_seed=None,
             progress=True,
         ).run()
@@ -354,24 +345,17 @@ def main() -> int:
     output_root.mkdir(parents=True, exist_ok=True)
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Same script-templating step as the main sweep — see
-    # sweep.run_sweep._resolve_mission_script for the rationale.
     args.mission = args.mission.resolve()
-    resolved_mission = args.mission.parent / _RESOLVED_SCRIPT_NAME
-    _resolve_mission_script(args.mission, args.gmat_sw_file.resolve(), resolved_mission)
-    print(
-        f"resolved mission script -> {resolved_mission} "
-        f"(SW file baked: {args.gmat_sw_file.resolve()})",
-        file=sys.stderr,
-    )
+    gmat_sw_file = args.gmat_sw_file.resolve()
 
     for factor in args.factor:
         df = run_one_factor(
             pairs,
-            resolved_mission,
+            args.mission,
             sw_lookup,
             factor,
             output_root,
+            gmat_sw_file,
             args.workers,
         )
         label = _FACTOR_LABELS.get(float(factor))

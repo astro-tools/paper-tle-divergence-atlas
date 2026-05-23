@@ -411,7 +411,6 @@ def _cli() -> int:
             manifest_path=manifest_path,
             output_dir=output_root,
             script_path=mission_path,
-            parameter_spec={"_kind": "explicit", "columns": [], "rows": []},
             sweep_seed=None,
             progress=True,
         ).run()

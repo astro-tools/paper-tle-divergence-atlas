@@ -16,9 +16,10 @@ Pipeline (three phases, single process for the driver):
          the same inertial frame GMAT propagates in.
 
     2. GMAT sweep: build one RunSpec per pair with field overrides
-       (`Sat.Epoch`, `Sat.X..VZ`, `elapsed_seconds`) and dispatch through
+       (`Sat.Epoch`, `Sat.X..VZ`, `elapsed_seconds.Value`,
+       `FM.Drag.CSSISpaceWeatherFile`) and dispatch through
        `gmat_sweep.Sweep` over a `LocalJoblibPool`. Each run writes its
-       ReportFile as `outputs/run_<id>/report__FinalState.parquet` and
+       ReportFile as `outputs/run-<id>/report__FinalState.parquet` and
        the sweep manifest lands at `--manifest` (default `sweep/manifest.jsonl`,
        outside `outputs/` so it can be committed).
 
@@ -41,7 +42,6 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
-import re
 import sys
 import time
 from dataclasses import dataclass
@@ -52,16 +52,8 @@ import erfa
 import numpy as np
 import pandas as pd
 from astropy.time import Time
-from gmat_sweep import (
-    LocalJoblibPool,
-    Manifest,
-    ManifestEntry,
-    RunSpec,
-    Sweep,
-    canonical_script_sha256,
-)
+from gmat_sweep import LocalJoblibPool, Manifest, RunSpec, Sweep
 from sgp4.api import Satrec, jday
-from tqdm import tqdm
 
 from sweep.space_weather import (
     SwRow,
@@ -74,17 +66,6 @@ from sweep.spacecraft_props import CD, CR
 DEFAULT_SMOKE_N: Final = 8  # split evenly across the Δt buckets
 DEFAULT_SMOKE_SEED: Final = 42
 DEFAULT_WORKERS: Final = 8
-
-# Pattern that matches the placeholder `FM.Drag.CSSISpaceWeatherFile` line in
-# `sweep/mission.script`. Substituted with the absolute SW-file path at sweep
-# startup — see `_resolve_mission_script` below for the rationale (gmat-run's
-# field-override API only accepts single-dot `Resource.Field` paths, so this
-# multi-dot sub-resource field can't be set per-run from `RunSpec.overrides`).
-_GMAT_SW_FILE_LINE = re.compile(
-    r"^(\s*GMAT\s+FM\.Drag\.CSSISpaceWeatherFile\s*=\s*)'[^']*'(\s*;)",
-    re.MULTILINE,
-)
-_RESOLVED_SCRIPT_NAME: Final = ".mission.resolved.script"
 
 # --- TEME → MJ2000Eq rotation (Vallado IAU 1976/1980, via erfa) -----------
 
@@ -238,41 +219,11 @@ def _gmat_epoch_string(epoch: pd.Timestamp) -> str:
     return f"{e.strftime('%d %b %Y %H:%M:%S')}.{e.microsecond // 1000:03d}"
 
 
-def _resolve_mission_script(
-    template_path: Path,
-    gmat_sw_file: Path,
-    out_path: Path,
-) -> Path:
-    """Bake the absolute SW-file path into a sweep-local copy of the script.
-
-    ``FM.Drag.CSSISpaceWeatherFile`` is a sub-resource field (two dots),
-    which gmat-run's ``Mission.__setitem__`` rejects — it only accepts
-    single-dot ``Resource.Field`` paths. The SW file is per-sweep, not
-    per-pair, so we substitute the absolute path into the script once
-    at sweep startup and dispatch GMAT against the resolved copy.
-
-    The resolved script's SHA-256 is what gmat-sweep records in the
-    manifest, so resume across sweep invocations is keyed on the
-    (template-bytes, sw-file-path) pair: a different SW path produces
-    a different script hash and correctly refuses to mix manifests.
-    """
-    text = template_path.read_text(encoding="utf-8")
-    replacement = rf"\g<1>'{gmat_sw_file}'\2"
-    new_text, n_subs = _GMAT_SW_FILE_LINE.subn(replacement, text)
-    if n_subs != 1:
-        raise ValueError(
-            f"expected exactly one `FM.Drag.CSSISpaceWeatherFile = '...';` "
-            f"line in {template_path}, found {n_subs}. Cannot resolve the "
-            f"GMAT space-weather override."
-        )
-    out_path.write_text(new_text, encoding="utf-8")
-    return out_path
-
-
 def _build_run_spec(
     pre: _Preprocessed,
     mission_path: Path,
     output_root: Path,
+    gmat_sw_file: Path,
 ) -> RunSpec:
     return RunSpec(
         script_path=mission_path,
@@ -289,23 +240,13 @@ def _build_run_spec(
             "Sat.DragArea": float(pre.drag_area_m2),
             "Sat.Cr": float(CR),
             "Sat.SRPArea": float(pre.srp_area_m2),
-            # GMAT Variables override via the .Value pseudo-field: bare name
-            # alone fails gmat-run's "Resource.Field" path validation.
             "elapsed_seconds.Value": float(pre.actual_dt_sec),
+            "FM.Drag.CSSISpaceWeatherFile": str(gmat_sw_file),
         },
-        output_dir=output_root / f"run_{pre.run_id}",
+        output_dir=output_root / f"run-{pre.run_id}",
         run_id=pre.run_id,
         seed=None,
-        # `overwrite=True` clears partial outputs from interrupted workers.
-        # gmat_run.Mission.run refuses non-empty working_dirs by default —
-        # a Ctrl-C mid-flight leaves a `worker.log` + maybe a partial
-        # `final_state.txt`, which would then fail every retry of that
-        # run_id with "already contains output files". For our sweep,
-        # `outputs/run_<id>/` is only populated when we intend to
-        # (re-)dispatch — `_filter_pairs_needing_postprocess` skips pairs
-        # whose `run_<id>.parquet` is already on disk, so we never
-        # accidentally overwrite a finished postprocess result.
-        run_options={"overwrite": True},
+        run_options={},
     )
 
 
@@ -444,23 +385,6 @@ def _preprocess_all(
     return out
 
 
-_OVERRIDE_COLUMNS: Final = (
-    "Sat.Epoch",
-    "Sat.X",
-    "Sat.Y",
-    "Sat.Z",
-    "Sat.VX",
-    "Sat.VY",
-    "Sat.VZ",
-    "Sat.DryMass",
-    "Sat.Cd",
-    "Sat.DragArea",
-    "Sat.Cr",
-    "Sat.SRPArea",
-    "elapsed_seconds.Value",
-)
-
-
 def _filter_pairs_needing_postprocess(pairs: pd.DataFrame, output_dir: Path) -> pd.DataFrame:
     """Drop pairs whose run_<id>.parquet already exists on disk.
 
@@ -505,100 +429,30 @@ def _dispatch_sweep(
     mission: Path,
     output_dir: Path,
     manifest_path: Path,
+    gmat_sw_file: Path,
     workers: int,
     resume: bool,
 ) -> None:
-    if resume:
-        _resume_dispatch(preprocessed, mission, output_dir, manifest_path, workers)
-        return
-
-    run_specs = [_build_run_spec(p, mission, output_dir) for p in preprocessed]
-    parameter_spec = {
-        "_kind": "explicit",
-        "columns": list(_OVERRIDE_COLUMNS),
-        "rows": [[spec.overrides[c] for c in _OVERRIDE_COLUMNS] for spec in run_specs],
-    }
+    run_specs = [_build_run_spec(p, mission, output_dir, gmat_sw_file) for p in preprocessed]
     with LocalJoblibPool(max_workers=workers) as pool:
-        Sweep(
-            runs=run_specs,
-            backend=pool,
-            manifest_path=manifest_path,
-            output_dir=output_dir,
-            script_path=mission,
-            parameter_spec=parameter_spec,
-            sweep_seed=None,
-            progress=True,
-        ).run()
-
-
-def _resume_dispatch(
-    preprocessed: list[_Preprocessed],
-    mission: Path,
-    output_dir: Path,
-    manifest_path: Path,
-    workers: int,
-) -> None:
-    """Re-dispatch only failed and missing runs against the existing manifest.
-
-    We do this manually rather than via `Sweep.from_manifest().resume()`
-    because gmat-sweep's `from_manifest` derives per-run output_dir from
-    `manifest_path.parent` and uses its default `run-<id>` (hyphen)
-    naming — landing resumed outputs in `sweep/run-<id>/` for our
-    layout, not `outputs/run_<id>/` where the fresh dispatch writes.
-    Building our own run_specs preserves the per-run output_dir; the
-    manifest is then appended via the documented `ManifestEntry`
-    contract so the resume looks identical on disk to a `Sweep.resume()`
-    call.
-
-    Mirrors the safety check from `Sweep.from_manifest`: if the on-disk
-    mission script hash differs from the manifest's recorded
-    `script_sha256`, the resumed runs would load a different script
-    than the original ok runs and the aggregated frame would mix two
-    sweeps. Refuses with `SystemExit` in that case.
-    """
-    manifest = Manifest.load(manifest_path)
-
-    current_sha = canonical_script_sha256(mission)
-    if current_sha != manifest.script_sha256:
-        raise SystemExit(
-            f"mission script hash drifted since the manifest was written: "
-            f"manifest={manifest.script_sha256[:12]}, current={current_sha[:12]}. "
-            f"Delete {manifest_path} to start fresh, or restore the original script."
-        )
-
-    expected = [p.run_id for p in preprocessed]
-    failed = set(Manifest.find_failed(manifest_path))
-    missing = set(Manifest.find_missing(manifest_path, expected))
-    to_retry = failed | missing
-    pre_subset = [p for p in preprocessed if p.run_id in to_retry]
-    if not pre_subset:
-        print("nothing to resume — all expected entries are ok", file=sys.stderr)
-        return
-
-    run_specs = sorted(
-        (_build_run_spec(p, mission, output_dir) for p in pre_subset),
-        key=lambda s: s.run_id,
-    )
-    print(
-        f"resume: {len(run_specs)} run(s) to re-dispatch "
-        f"({len(failed)} failed + {len(missing)} missing)",
-        file=sys.stderr,
-    )
-
-    progress = tqdm(total=len(run_specs), desc="gmat-sweep resume", unit="run")
-    try:
-        with LocalJoblibPool(max_workers=workers) as pool:
-            for spec, outcome in pool.imap(run_specs):
-                entry = ManifestEntry.from_outcome(
-                    outcome,
-                    overrides=spec.overrides,
-                    log_path=spec.output_dir / "worker.log",
-                )
-                manifest.append_entry(entry)
-                progress.update(1)
-        manifest.close()
-    finally:
-        progress.close()
+        if resume:
+            Sweep.from_manifest(
+                manifest_path,
+                mission,
+                backend=pool,
+                output_dir=output_dir,
+                progress=True,
+            ).resume()
+        else:
+            Sweep(
+                runs=run_specs,
+                backend=pool,
+                manifest_path=manifest_path,
+                output_dir=output_dir,
+                script_path=mission,
+                sweep_seed=None,
+                progress=True,
+            ).run()
 
 
 def _postprocess_all(
@@ -691,18 +545,6 @@ def main() -> int:
         file=sys.stderr,
     )
 
-    # Bake the SW file path into a sweep-local copy of the script.
-    # gmat-run's override API can't address `FM.Drag.CSSISpaceWeatherFile`
-    # (sub-resource field), so templating is the only way to point GMAT
-    # at a project-local SW file without mutating the install.
-    resolved_mission = args.mission.parent / _RESOLVED_SCRIPT_NAME
-    _resolve_mission_script(args.mission, args.gmat_sw_file, resolved_mission)
-    print(
-        f"resolved mission script -> {resolved_mission} (SW file baked: {args.gmat_sw_file})",
-        file=sys.stderr,
-    )
-    args.mission = resolved_mission
-
     # Resume if an existing manifest matches the current corpus; otherwise
     # fresh dispatch. The fresh path always re-runs from scratch; resume
     # delegates to `Sweep.from_manifest(...).resume()` which re-dispatches
@@ -748,6 +590,7 @@ def main() -> int:
         args.mission,
         args.output_dir,
         args.manifest,
+        args.gmat_sw_file,
         args.workers,
         resume=resume,
     )
