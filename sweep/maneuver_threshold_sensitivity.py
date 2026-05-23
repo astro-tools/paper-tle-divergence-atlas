@@ -45,17 +45,10 @@ import time
 from pathlib import Path
 from typing import Final
 
-import numpy as np
 import pandas as pd
-from gmat_sweep import LocalJoblibPool, Manifest, Sweep
+from gmat_sweep import LocalJoblibPool, Sweep, lazy_extra_outputs
 
-from sweep.run_sweep import (
-    _build_run_spec,
-    _decompose_rsw,
-    _final_gmat_state,
-    _preprocess_all,
-    _Preprocessed,
-)
+from sweep.run_sweep import _build_run_spec, _preprocess_all
 from sweep.space_weather import load_sw_cache
 
 DEFAULT_WORKERS: Final = 8
@@ -115,94 +108,33 @@ def _assign_augment_run_ids(augment_pairs: pd.DataFrame) -> pd.DataFrame:
     return sorted_pairs
 
 
-def _postprocess_run(
-    pre: _Preprocessed,
-    report_path: Path,
-    out_path: Path,
-) -> dict:
-    """Per-run comparison row in the main-sweep schema.
-
-    Differs from `sweep.run_sweep._postprocess_run` only by living next
-    to the augment driver --- the column list is identical, so the
-    augment frame concatenates cleanly with the main-sweep frame in the
-    downstream table emitter.
-    """
-    r_hifi_mj, _ = _final_gmat_state(report_path)
-    dr_sgp4 = pre.r_sgp4_pred_mj_km - pre.r_truth_mj_km
-    dr_hifi = r_hifi_mj - pre.r_truth_mj_km
-
-    sgp4_r, sgp4_a, sgp4_c = _decompose_rsw(dr_sgp4, pre.r_truth_mj_km, pre.v_truth_mj_km_s)
-    hifi_r, hifi_a, hifi_c = _decompose_rsw(dr_hifi, pre.r_truth_mj_km, pre.v_truth_mj_km_s)
-
-    row = {
-        "run_id": pre.run_id,
-        "norad_id": pre.norad_id,
-        "target_dt_sec": pre.target_dt_sec,
-        "t_i": pre.epoch_i,
-        "t_j": pre.epoch_j,
-        "actual_dt_sec": pre.actual_dt_sec,
-        "alt_shell": pre.alt_shell,
-        "dr_sgp4_km": float(np.linalg.norm(dr_sgp4)),
-        "dr_sgp4_radial_km": sgp4_r,
-        "dr_sgp4_along_km": sgp4_a,
-        "dr_sgp4_cross_km": sgp4_c,
-        "dr_hifi_km": float(np.linalg.norm(dr_hifi)),
-        "dr_hifi_radial_km": hifi_r,
-        "dr_hifi_along_km": hifi_a,
-        "dr_hifi_cross_km": hifi_c,
-        "f107": pre.f107_obs,
-        "ap": pre.ap_daily,
-    }
-    pd.DataFrame([row]).to_parquet(out_path, index=False)
-    return row
-
-
 def _aggregate_augment(
-    preprocessed: list[_Preprocessed],
     manifest_path: Path,
-    output_root: Path,
     augment_pairs: pd.DataFrame,
 ) -> pd.DataFrame:
-    """Walk the manifest, postprocess each ok entry, join corpus columns.
+    """Stream every ok manifest entry's comparison output and join corpus columns.
 
-    The join attaches ``CARRIED_COLUMNS`` from the 200 m corpus
-    (``generation`` and the spacecraft-property columns) so the augment
-    frame matches the joined ``outputs/all_runs.parquet`` schema and the
-    table emitter can concat without extra alignment.
+    The per-run comparison schema is produced by the main sweep's
+    postprocess hook (`sweep.run_sweep:_postprocess_run`) — there is
+    no augment-specific hook, since the augment frame's per-run schema
+    is identical to the main sweep's. The join attaches
+    ``CARRIED_COLUMNS`` from the 200 m augment corpus (``generation``
+    and the spacecraft-property columns) so the augment frame matches
+    the joined ``outputs/all_runs.parquet`` schema and the table
+    emitter can concat without extra alignment.
+
+    The augment_pairs index already carries the offset run_id (set by
+    `_assign_augment_run_ids`), so we lift it into a column for the merge.
     """
-    by_run_id = {p.run_id: p for p in preprocessed}
-    manifest = Manifest.load(manifest_path)
-    rows: list[dict] = []
-    for entry in manifest.entries:
-        if entry.status != "ok":
-            continue
-        pre = by_run_id.get(entry.run_id)
-        if pre is None:
-            print(
-                f"  run_id={entry.run_id}: ok in manifest but no preprocess data; skipping",
-                file=sys.stderr,
-            )
-            continue
-        report_path_obj = entry.output_paths.get("report__FinalState")
-        if report_path_obj is None or not Path(report_path_obj).exists():
-            print(
-                f"  run_id={entry.run_id}: no FinalState report; skipping postprocess",
-                file=sys.stderr,
-            )
-            continue
-        out_path = output_root / f"run_{pre.run_id}.parquet"
-        rows.append(_postprocess_run(pre, Path(report_path_obj), out_path))
-
-    if not rows:
+    frame = lazy_extra_outputs(manifest_path, "comparison")
+    ok = frame[frame["__status"] == "ok"].drop(columns="__status")
+    if ok.empty:
         raise RuntimeError("no augment runs were postprocessed")
+    ok = ok.reset_index()
 
-    frame = pd.DataFrame(rows)
-    # Join corpus columns by `run_id`. The augment_pairs index already
-    # carries the offset run_id (set by `_assign_augment_run_ids`), so we
-    # join on that index against the per-run rows.
     corpus_cols = augment_pairs[list(CARRIED_COLUMNS)].copy()
     corpus_cols["run_id"] = corpus_cols.index.astype(int)
-    return frame.merge(corpus_cols, on="run_id", how="left")
+    return ok.merge(corpus_cols, on="run_id", how="left")
 
 
 def run_augment_sweep(
@@ -260,9 +192,9 @@ def run_augment_sweep(
         ).run()
     print(f"    sweep finished in {time.monotonic() - t0:.1f} s", file=sys.stderr)
 
-    df = _aggregate_augment(preprocessed, manifest_path, output_root, augment_pairs)
+    df = _aggregate_augment(manifest_path, augment_pairs)
     print(
-        f"=== Maneuver-threshold augment: postprocessed {len(df)} run(s) ===",
+        f"=== Maneuver-threshold augment: aggregated {len(df)} run(s) ===",
         file=sys.stderr,
     )
     return df
