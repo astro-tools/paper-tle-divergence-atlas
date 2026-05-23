@@ -33,6 +33,7 @@ from sweep.run_sweep import (
     _build_run_spec,
     _context_from_preprocessed,
     _decompose_rsw,
+    _dispatch_sweep,
     _gmat_epoch_string,
     _postprocess_run,
     _preprocess_pair,
@@ -521,6 +522,55 @@ class TestResumeCompatible:
         self._write_manifest(path, run_count=8)
         with pytest.raises(SystemExit, match="run_count=8.*24641"):
             _resume_compatible(path, n_corpus_pairs=24_641)
+
+
+class TestDispatchSweep:
+    """Constructor wiring for the initial-run Sweep.
+
+    The postprocess hook must reach the Sweep constructor — not just each
+    individual RunSpec — so that the manifest header records it. Without
+    that, Sweep.from_manifest reloads with postprocess=None and the resume
+    path's spec-restamp drops the hook on every retried run.
+    """
+
+    def test_initial_run_passes_postprocess_to_sweep(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        captured: dict[str, object] = {}
+
+        class _SweepSpy:
+            def __init__(self, **kwargs: object) -> None:
+                captured.update(kwargs)
+
+            def run(self) -> None:
+                return None
+
+        class _NoopPool:
+            def __init__(self, **_kwargs: object) -> None:
+                pass
+
+            def __enter__(self) -> _NoopPool:
+                return self
+
+            def __exit__(self, *_args: object) -> None:
+                return None
+
+        import sweep.run_sweep as rs
+
+        monkeypatch.setattr(rs, "Sweep", _SweepSpy)
+        monkeypatch.setattr(rs, "LocalJoblibPool", _NoopPool)
+
+        _dispatch_sweep(
+            preprocessed=[],
+            mission=tmp_path / "mission.script",
+            output_dir=tmp_path / "out",
+            manifest_path=tmp_path / "manifest.jsonl",
+            gmat_sw_file=tmp_path / "sw.txt",
+            workers=1,
+            resume=False,
+        )
+
+        assert captured.get("postprocess") == POSTPROCESS_HOOK
 
 
 if __name__ == "__main__":  # pragma: no cover
