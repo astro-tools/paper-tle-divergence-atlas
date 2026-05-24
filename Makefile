@@ -1,4 +1,4 @@
-.PHONY: help env fetch-tles fetch-satcat fetch-sw fetch-gmat-sw install-egm2008 build-corpus build-maneuver-jumps build-rejection-counts build-sensitivity-subset build smoke sweep aggregate sweep-stats diagnostics cda-sensitivity cda-sensitivity-table maneuver-threshold-sensitivity maneuver-threshold-table h3-regression propagator-wins figures bundle arxiv-tarball clean
+.PHONY: help env fetch-tles fetch-satcat fetch-sw fetch-gmat-sw install-egm2008 build-corpus build-maneuver-jumps build-rejection-counts build-sensitivity-subset build smoke sweep aggregate sweep-stats diagnostics cda-sensitivity cda-sensitivity-table maneuver-threshold-sensitivity maneuver-threshold-table h3-regression propagator-wins bundle arxiv-tarball clean
 
 help:
 	@echo "Targets:"
@@ -61,7 +61,6 @@ help:
 	@echo "                     sat-level bootstrap CIs on 3D L2 and along-track,"
 	@echo "                     emitted as outputs/propagator_wins.json plus the"
 	@echo "                     §4.2 main-body table src/tex/tables/tab_propagator_wins.tex."
-	@echo "  figures      -- regenerate figures from outputs/"
 	@echo "  bundle       -- zip the canonical Zenodo deposit bundle to bundle.zip"
 	@echo "                  (aggregated sweep outputs + manifest + mission script +"
 	@echo "                  EGM2008 installer; flat layout)."
@@ -219,9 +218,6 @@ propagator-wins:
 	    --json-out outputs/propagator_wins.json \
 	    --table-out src/tex/tables/tab_propagator_wins.tex \
 	    --by-gen-table-out src/tex/tables/tab_propagator_wins_by_gen.tex
-
-figures:
-	snakemake --cores 1 src/tex/figures
 
 bundle:
 	python -m sweep.bundle
