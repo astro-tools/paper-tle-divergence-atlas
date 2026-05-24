@@ -170,7 +170,7 @@ def _aggregate_factor(manifest_path: Path, factor: float) -> pd.DataFrame:
     ok = frame[frame["__status"] == "ok"].drop(columns="__status")
     if ok.empty:
         raise RuntimeError(f"no runs were postprocessed at CdA factor {factor:g}")
-    return ok.reset_index(drop=True)
+    return ok.reset_index()
 
 
 def run_one_factor(
