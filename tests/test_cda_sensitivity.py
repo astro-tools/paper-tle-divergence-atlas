@@ -8,6 +8,10 @@ GMAT-touching code paths are exercised end-to-end through the
 - `select_v2_mini_subset` reads the subset id file, filters by
   generation, and respects the `reset_index(drop=True)` = run_id
   convention.
+- `_aggregate_factor` promotes the `lazy_extra_outputs` run_id index
+  back to a column (pins the regression where it was being dropped),
+  excludes non-ok manifest entries, and preserves the CdA-only schema
+  columns.
 - `cda_sensitivity_table.build` produces a valid LaTeX table and a
   JSON summary from a synthetic three-frame input; alignment-mismatch
   cases raise.
@@ -15,6 +19,8 @@ GMAT-touching code paths are exercised end-to-end through the
 
 from __future__ import annotations
 
+import datetime as dt
+import json
 from pathlib import Path
 
 import pandas as pd
@@ -24,6 +30,7 @@ from gmat_sweep import RunSpec
 from sweep import cda_sensitivity_table
 from sweep.cda_sensitivity import (
     GENERATION_V2_MINI,
+    _aggregate_factor,
     _scale_drag_area,
     select_v2_mini_subset,
 )
@@ -314,3 +321,137 @@ class TestCdaSensitivityTable:
         assert cda_sensitivity_table._fmt_shift(0.8, 1.0) == "-20.0\\%"
         assert cda_sensitivity_table._fmt_shift(float("nan"), 1.0) == "---"
         assert cda_sensitivity_table._fmt_shift(1.0, 0.0) == "---"
+
+
+def _cda_per_run_row(run_id: int, factor: float) -> dict:
+    """One row matching `_postprocess_run`'s CdA-arm comparison schema."""
+    return {
+        "run_id": run_id,
+        "norad_id": 50_000 + run_id,
+        "target_dt_sec": 86_400,
+        "t_i": pd.Timestamp("2026-04-01T00:00:00Z"),
+        "t_j": pd.Timestamp("2026-04-02T00:00:00Z"),
+        "actual_dt_sec": 86_400.0,
+        "alt_shell": "550",
+        "dr_sgp4_km": 1.0,
+        "dr_sgp4_radial_km": 0.0,
+        "dr_sgp4_along_km": 1.0,
+        "dr_sgp4_cross_km": 0.0,
+        "dr_hifi_km": 1.5,
+        "dr_hifi_radial_km": 0.1,
+        "dr_hifi_along_km": 1.5,
+        "dr_hifi_cross_km": 0.0,
+        "f107": 130.0,
+        "ap": 8.0,
+        "cda_factor": factor,
+        "applied_drag_area_m2": 4.5 * factor,
+        "generation": GENERATION_V2_MINI,
+    }
+
+
+def _write_cda_manifest(
+    path: Path,
+    entries: list[tuple[int, str, Path | None]],
+) -> None:
+    """Write a minimal manifest with the given (run_id, status, comparison_path) rows.
+
+    Mirrors the `lazy_extra_outputs`-compatible shape used in
+    `tests/test_aggregate.py` so the CdA aggregator sees a realistic
+    manifest. ``status == "failed"`` entries get no `extra_outputs.comparison`
+    registration.
+    """
+    header = {
+        "schema_version": 1,
+        "script_sha256": "0" * 64,
+        "gmat_sweep_version": "test",
+        "gmat_run_version": "test",
+        "gmat_install_version": "test",
+        "python_version": "3.12",
+        "os_platform": "test",
+        "sweep_seed": None,
+        "parameter_spec": {"_kind": "explicit", "columns": [], "rows": []},
+        "run_count": len(entries),
+        "backend": "test",
+        "postprocess": "sweep.cda_sensitivity:_postprocess_run",
+    }
+    now = dt.datetime(2026, 5, 1, 12, 0, 0, tzinfo=dt.UTC).isoformat()
+    lines = [json.dumps(header, sort_keys=True)]
+    for run_id, status, comparison_path in entries:
+        extra: dict[str, str] = {}
+        postprocess_status = "none"
+        if status == "ok" and comparison_path is not None:
+            extra["comparison"] = str(comparison_path)
+            postprocess_status = "ok"
+        entry = {
+            "run_id": run_id,
+            "overrides": {},
+            "context": {},
+            "status": status,
+            "output_paths": {},
+            "extra_outputs": extra,
+            "postprocess_status": postprocess_status,
+            "solver_paths": {},
+            "converged": {},
+            "started_at": now,
+            "ended_at": now,
+            "duration_s": 1.0,
+            "stderr": None,
+            "log_path": None,
+        }
+        lines.append(json.dumps(entry, sort_keys=True))
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+class TestAggregateFactor:
+    """Aggregator unit tests.
+
+    The headline assertion is ``run_id in df.columns``: `lazy_extra_outputs`
+    returns a run_id-indexed frame, and `_aggregate_factor` must promote
+    that index back to a column (the same idiom `sweep.aggregate` and
+    `sweep.maneuver_threshold_sensitivity` already use). The previous
+    `reset_index(drop=True)` quietly dropped it, so the top-level
+    `all_runs_cda_{low,high}.parquet` shipped without run_id and the
+    downstream table builder blew up on the v2-mini join.
+    """
+
+    @pytest.fixture
+    def cda_manifest(self, tmp_path: Path) -> Path:
+        factor = 0.8
+        output_dir = tmp_path / "outputs"
+        output_dir.mkdir()
+        comparison_paths: list[Path] = []
+        for run_id in (10, 11, 12):
+            run_dir = output_dir / f"run-{run_id}"
+            run_dir.mkdir()
+            comp_path = run_dir / "comparison.parquet"
+            pd.DataFrame([_cda_per_run_row(run_id, factor)]).to_parquet(
+                comp_path,
+                index=False,
+            )
+            comparison_paths.append(comp_path)
+        manifest_path = tmp_path / "manifest.jsonl"
+        _write_cda_manifest(
+            manifest_path,
+            [
+                (10, "ok", comparison_paths[0]),
+                (11, "ok", comparison_paths[1]),
+                (12, "ok", comparison_paths[2]),
+                (13, "failed", None),
+            ],
+        )
+        return manifest_path
+
+    def test_run_id_is_a_column(self, cda_manifest: Path) -> None:
+        df = _aggregate_factor(cda_manifest, factor=0.8)
+        assert "run_id" in df.columns
+        assert set(df["run_id"].astype(int)) == {10, 11, 12}
+
+    def test_excludes_failed_runs(self, cda_manifest: Path) -> None:
+        df = _aggregate_factor(cda_manifest, factor=0.8)
+        assert 13 not in set(df["run_id"].astype(int))
+
+    def test_cda_columns_preserved(self, cda_manifest: Path) -> None:
+        df = _aggregate_factor(cda_manifest, factor=0.8)
+        assert (df["cda_factor"] == 0.8).all()
+        assert "applied_drag_area_m2" in df.columns
+        assert (df["generation"] == GENERATION_V2_MINI).all()
