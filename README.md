@@ -8,7 +8,7 @@
 > *How long can you trust a Starlink TLE? An empirical comparison of SGP4 and high-fidelity propagation against operator-updated truth across a megaconstellation.*
 
 Author: Dimitrije Jankovic (Independent researcher — astro-tools)
-Status: **v0.1.0** — [release notes](https://github.com/astro-tools/paper-tle-divergence-atlas/releases/tag/v0.1.0)
+Status: **v0.2.0** — [release notes](https://github.com/astro-tools/paper-tle-divergence-atlas/releases/tag/v0.2.0)
 
 ## What this repository is
 
@@ -67,7 +67,7 @@ scratch (different corpus, or just a clean slate), delete
 ## Data and code availability
 
 - **Code:** this repository (MIT licensed).
-- **Sweep outputs:** Zenodo concept DOI <https://doi.org/10.5281/zenodo.20277028> (the badge above resolves here). v0.1.0 version DOI: <https://doi.org/10.5281/zenodo.20277029>.
+- **Sweep outputs:** Zenodo concept DOI <https://doi.org/10.5281/zenodo.20277028> (the badge above resolves here). v0.2.0 version DOI: <https://doi.org/10.5281/zenodo.20370326>.
 - **Input data:** Starlink TLEs from [Space-Track](https://www.space-track.org)'s `gp_history` endpoint, restricted to `OBJECT_NAME ~~ STARLINK` over the April 2026 window pinned in `src/static/window.json`. The committed `src/static/tles_cache.parquet` is the post-sample subset, so the manuscript build never re-fetches and does not require Space-Track credentials. Solar activity from [CelesTrak](https://celestrak.org/SpaceData/)'s space weather file. The same CelesTrak file (committed at `src/static/SpaceWeather-All-v1.2.txt`) is the input to GMAT's NRLMSISE-00 drag model via the `FM.Drag.CSSISpaceWeatherFile` script-level override, and is independently joined onto each output row as a per-pair F10.7 / Ap analysis annotation.
 - **Spacecraft properties:** per-NORAD-ID dry mass and structural span are taken from Jonathan McDowell's *General Catalog of Artificial Space Objects* ([GCAT](https://planet4589.org/space/gcat/)), with a snapshot of the relevant subset cached in `src/static/`. Cite McDowell, J. C. 2020, AJ, 159, 5.
 
