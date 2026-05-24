@@ -21,8 +21,8 @@ keywords:
   - starlink
   - megaconstellation
   - space-situational-awareness
-date-released: "2026-05-18"
-version: "0.1.0"
+date-released: "2026-05-24"
+version: "0.2.0"
 doi: "10.5281/zenodo.20277028"
 preferred-citation:
   type: article

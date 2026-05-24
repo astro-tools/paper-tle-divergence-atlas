@@ -4,6 +4,25 @@ All notable changes to `paper-tle-divergence-atlas` are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] — 2026-05-24
+
+Reproducibility refresh of v0.1.0 under the gmat-sweep / gmat-run 0.6 toolchain. Per-row Δr against the v0.1.0 outputs is at floating-point-roundoff scale across every aggregate, summary, and diagnostic — no manuscript reissue, no arXiv v2, no science changes.
+
+### Changed
+
+- Sweep, CdA sensitivity arm, maneuver-threshold sensitivity arm, and `sweep/manifest.jsonl` regenerated end-to-end against gmat-sweep / gmat-run 0.6 (#68). The refreshed Zenodo deposit is published as version 0.2.0 under the existing concept DOI `10.5281/zenodo.20277028` (version DOI `10.5281/zenodo.20370326`).
+- Pipeline upgraded to gmat-sweep / gmat-run 0.6 (#62), dropping the 0.4-era script-templating workaround.
+- Phase-3 post-processing folded into the sweep via gmat-sweep's postprocess hook (#63); the hook is now re-applied on `Sweep` resume so partial-restart runs match cold-start runs bit-for-bit (#66).
+
+### Added
+
+- arXiv preprint badge and citation metadata pointing at [arXiv:2605.19850](https://arxiv.org/abs/2605.19850) (#58).
+- Regression test pinning `run_id` preservation when aggregating the CdA sensitivity arm (#67).
+
+### Removed
+
+- `make figures` Makefile target (#71); figures are produced by `make build` via showyourwork's Snakemake DAG.
+
 ## [0.1.0] — 2026-05-18
 
 Initial citeable release of *How long can you trust a Starlink TLE? An empirical comparison of SGP4 and high-fidelity propagation against operator-updated truth across a megaconstellation*.
