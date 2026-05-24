@@ -14,20 +14,20 @@ require_inputs: true
 #
 # Keyed by the *version* DOI (showyourwork rejects concept DOIs at
 # preprocess time so the snapshot is locked). The current entry points
-# at the v0.1.0 production Zenodo deposit holding the canonical
+# at the v0.2.0 candidate Zenodo Sandbox deposit holding the canonical
 # bundle.zip produced by `make bundle` (aggregated main sweep,
 # CdA/maneuver-threshold sensitivity-subset frames, mixed-effects
 # supplement, plus analysis summaries and the truth-floor diagnostic).
-# The concept DOI (10.5281/zenodo.20277028) is the citable, version-
-# stable identifier used in the manuscript and CITATION.cff; this
-# key is the version DOI of the specific v0.1.0 snapshot.
+# Sandbox is non-persistent and may be cleaned; the v0.2.0 release-cut
+# PR swaps this for the production Zenodo version DOI under the
+# existing concept 10.5281/zenodo.20277028.
 #
 # The single deposit artefact is bundle.zip; per showyourwork's
 # zip-deposit syntax, each archive entry is addressed as
 # `<archive-name>/<entry-name>`. showyourwork downloads the archive
 # once and extracts the named entries to their target paths.
 datasets:
-  10.5281/zenodo.20277029:
+  10.5072/zenodo.503840:
     contents:
       bundle.zip/all_runs.parquet: outputs/all_runs.parquet
       bundle.zip/all_runs_cda_low.parquet: outputs/all_runs_cda_low.parquet
